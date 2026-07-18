@@ -1,0 +1,19 @@
+{
+  "name": "ai-design-backend",
+  "version": "1.0.0",
+  "description": "AI景观设计工作流平台后端 - 代理AI API调用 + 用量控制 + 权限校验",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}

@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>伍师浅谈设计助手</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   伍师浅谈设计助手 — 油画色彩系统
+   景观设计流程变色：绿→蓝→金→红→紫
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root{
+  /* 棕榈绿 — 立项/需求 */
+  --palm:     #1B4A0A; --palm-m:  #3B7A1A; --palm-l:  #7AAF3C; --palm-f: #A0D860;
+  /* 海洋蓝 — 分析/策略 */
+  --sea:      #0A3B6E; --sea-m:   #1464A0; --sea-l:   #3A9FD4; --sea-f:  #7ECBE8;
+  /* 日落金 — 效果图/概念 */
+  --sun:      #E8A020; --sun-m:   #C4680A; --sun-d:   #E05015; --sun-f:  #F5C860;
+  /* 沙色 — 图纸/技术 */
+  --sand:     #D4943A; --sand-l:  #F0C060; --sand-p:  #F5DFA0;
+  /* 花朵红 — 输出/确认 */
+  --bloom:    #C42830; --bloom-m: #D4506A; --bloom-l: #E87844;
+  /* 黄昏紫 — PPT/展板 */
+  --dusk:     #8C3060; --dusk-l:  #B45890; --dusk-f:  #D080B0;
+  /* 暮色 — 最终交付 */
+  --eve:      #4A1050; --eve-l:   #6A2080;
+  /* 中性 */
+  --cream:    #FAF0D0; --cream-d: #E8D0A0;
+  --ink:      #0A0800; --ink-m:   #1A1000; --ink-l:   #2A1A08;
+  --glass:    rgba(250,240,208,.07); --glass-b: rgba(212,148,58,.18);
+  --r: 12px; --r-lg: 16px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{
+  font-family:'Noto Sans SC',-apple-system,BlinkMacSystemFont,sans-serif;
+  background:linear-gradient(135deg,var(--ink) 0%,var(--ink-m) 50%,#150A05 100%);
+  color:var(--cream);min-height:100vh;overflow-x:hidden;
+  background-attachment:fixed;
+  font-size:15px;
+}
+
+/* ─── 油画纹理叠加 ─── */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+  opacity:0.6;
+}
+
+/* ─── TOPBAR ─── */
+#topbar{
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;gap:12px;padding:0 24px;height:58px;
+  background:rgba(10,8,0,.92);
+  border-bottom:2px solid rgba(232,160,32,.35);
+  box-shadow:0 4px 30px rgba(0,0,0,.5),0 0 20px rgba(232,160,32,.08);
+  backdrop-filter:blur(12px);
+}
+.logo{display:flex;align-items:center;gap:8px;text-decoration:none;cursor:pointer}
+.logo-mark{
+  width:34px;height:34px;border-radius:10px;
+  background:rgba(232,160,32,.2);border:1.5px solid rgba(232,160,32,.4);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;backdrop-filter:blur(4px);
+}
+.logo-name{font-size:17px;font-weight:800;color:var(--cream);letter-spacing:.04em}
+.logo-sub{font-size:11px;padding:2px 9px;border-radius:20px;
+  background:rgba(232,160,32,.18);border:.5px solid var(--sun);
+  color:var(--sun-f);margin-left:4px;font-weight:500}
+
+nav{display:flex;gap:3px;margin:0 auto}
+.npill{
+  padding:6px 16px;border-radius:20px;font-size:13px;
+  color:rgba(250,240,208,.5);cursor:pointer;border:.5px solid transparent;
+  transition:all .15s;background:none;font-family:inherit
+}
+.npill:hover{color:var(--cream);background:rgba(255,255,255,.08)}
+.npill.on{
+  background:rgba(232,160,32,.18);border-color:rgba(232,160,32,.45);
+  color:var(--sun-f);font-weight:600
+}
+
+#xp-wrap{display:flex;align-items:center;gap:10px}
+#xp-bar{width:80px;height:5px;background:rgba(255,255,255,.12);border-radius:3px;overflow:hidden}
+#xp-fill{height:100%;background:linear-gradient(90deg,var(--palm-l),var(--sun),var(--dusk-l));border-radius:3px;transition:width .5s ease;width:0%}
+#xp-num{font-size:11px;font-weight:600;color:var(--sun-f);min-width:60px;text-align:right}
+.av-btn{
+  width:32px;height:32px;border-radius:50%;background:var(--sun-m);
+  border:1.5px solid var(--sun);display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;color:var(--cream);cursor:pointer
+}
+
+/* ─── LAYOUT ─── */
+#app{display:flex;height:calc(100vh - 58px)}
+
+/* ─── SIDEBAR ─── */
+#sidebar{
+  width:210px;flex-shrink:0;overflow-y:auto;
+  background:linear-gradient(180deg,var(--ink-m) 0%,rgba(10,8,0,.95) 100%);
+  border-right:1px solid rgba(212,148,58,.12);padding:12px 8px;
+}
+.s-sec{font-size:10px;font-weight:700;color:rgba(212,148,58,.4);text-transform:uppercase;letter-spacing:.08em;padding:10px 12px 5px}
+.s-item{
+  display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:10px;
+  font-size:13px;color:rgba(250,240,208,.45);cursor:pointer;
+  transition:all .12s;border:.5px solid transparent;margin-bottom:2px
+}
+.s-item:hover{background:rgba(212,148,58,.07);color:rgba(250,240,208,.85)}
+.s-item.active{
+  background:rgba(232,160,32,.12);border-color:rgba(232,160,32,.22);
+  color:var(--sun-f);font-weight:600
+}
+.s-item .si-icon{font-size:16px;flex-shrink:0;width:22px;text-align:center}
+.s-chip{margin-left:auto;font-size:10px;padding:2px 8px;border-radius:10px}
+.chip-done{background:rgba(58,159,212,.14);color:rgba(58,159,212,.9)}
+.chip-now{background:rgba(232,160,32,.18);color:var(--sun-f)}
+.chip-lock{background:rgba(255,255,255,.06);color:rgba(255,255,255,.2)}
+.s-div{height:.5px;background:rgba(212,148,58,.1);margin:8px 10px}
+
+/* ─── CONTENT ─── */
+#content{flex:1;overflow-y:auto;position:relative}
+#content::before{
+  content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:linear-gradient(180deg,transparent 0%,rgba(10,8,0,.3) 100%);
+}
+.page-section{display:none;padding:20px;position:relative;z-index:1}
+.page-section.on{display:block}
+
+/* ─── HERO ─── */
+.hero{
+  background:linear-gradient(135deg,rgba(27,74,10,.6),rgba(10,59,110,.5),rgba(74,16,80,.5));
+  border-radius:var(--r-lg);padding:32px 36px;margin-bottom:20px;
+  border:1px solid rgba(212,148,58,.15);position:relative;overflow:hidden;
+  backdrop-filter:blur(8px);
+}
+.hero::before{
+  content:'';position:absolute;top:-40px;right:-40px;width:200px;height:200px;
+  background:radial-gradient(circle,rgba(232,160,32,.15),transparent 70%);pointer-events:none
+}
+.hero::after{
+  content:'';position:absolute;bottom:-30px;left:-30px;width:150px;height:150px;
+  background:radial-gradient(circle,rgba(58,159,212,.12),transparent 70%);pointer-events:none
+}
+.hero h1{font-size:28px;font-weight:700;color:var(--cream);margin-bottom:10px;position:relative}
+.hero p{font-size:15px;color:rgba(250,240,208,.7);line-height:1.7;margin-bottom:20px;position:relative;max-width:600px}
+.hero-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  background:linear-gradient(90deg,var(--sun-m),var(--sun));
+  color:var(--ink);padding:12px 24px;border-radius:var(--r);border:none;
+  font-size:14px;font-weight:600;cursor:pointer;position:relative;
+  transition:all .2s;font-family:inherit
+}
+.hero-btn:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(232,160,32,.3)}
+
+/* ─── 快捷卡片 ─── */
+.qgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.qcard{
+  background:rgba(255,255,255,.04);border:1px solid rgba(212,148,58,.12);
+  border-radius:var(--r-lg);padding:18px;cursor:pointer;transition:all .18s;
+  position:relative;overflow:hidden;backdrop-filter:blur(4px);
+}
+.qcard:hover{border-color:rgba(232,160,32,.35);transform:translateY(-3px);background:rgba(255,255,255,.07)}
+.qcard .qc-icon{
+  width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  font-size:20px;margin-bottom:10px
+}
+.qcard:nth-child(1) .qc-icon{background:rgba(59,122,26,.15);color:var(--palm-l)}
+.qcard:nth-child(2) .qc-icon{background:rgba(10,59,110,.15);color:var(--sea-l)}
+.qcard:nth-child(3) .qc-icon{background:rgba(232,160,32,.12);color:var(--sun)}
+.qcard:nth-child(4) .qc-icon{background:rgba(140,48,96,.12);color:var(--dusk-l)}
+.qcard h3{font-size:14px;font-weight:600;color:var(--cream);margin-bottom:4px}
+.qcard p{font-size:12px;color:rgba(250,240,208,.5)}
+
+/* ─── 卡片系统 ─── */
+.card{
+  background:rgba(255,255,255,.05);border-radius:var(--r-lg);padding:18px;margin-bottom:16px;
+  border:1px solid rgba(212,148,58,.12);position:relative;overflow:hidden;
+  backdrop-filter:blur(4px);
+}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.card.c-palm::before{background:linear-gradient(90deg,var(--palm),var(--palm-l))}
+.card.c-sea::before{background:linear-gradient(90deg,var(--sea),var(--sea-l))}
+.card.c-sun::before{background:linear-gradient(90deg,var(--sun-m),var(--sun))}
+.card.c-sand::before{background:linear-gradient(90deg,var(--sand),var(--sand-l))}
+.card.c-bloom::before{background:linear-gradient(90deg,var(--bloom),var(--bloom-l))}
+.card.c-dusk::before{background:linear-gradient(90deg,var(--dusk),var(--dusk-l))}
+.card.c-eve::before{background:linear-gradient(90deg,var(--eve),var(--dusk-l))}
+.card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-title{font-size:15px;font-weight:600;color:var(--cream);display:flex;align-items:center;gap:8px}
+.card-title .ct-icon{font-size:18px}
+
+/* ─── 标签 ─── */
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 10px;border-radius:20px;border:.5px solid;white-space:nowrap}
+.tg-palm{background:rgba(59,122,26,.12);border-color:rgba(59,122,26,.3);color:var(--palm-l)}
+.tg-sea{background:rgba(20,100,160,.1);border-color:rgba(20,100,160,.28);color:var(--sea-l)}
+.tg-sun{background:rgba(232,160,32,.12);border-color:rgba(232,160,32,.28);color:var(--sun)}
+.tg-sand{background:rgba(212,148,58,.1);border-color:rgba(212,148,58,.28);color:var(--sand-l)}
+.tg-dusk{background:rgba(140,48,96,.1);border-color:rgba(140,48,96,.25);color:var(--dusk-l)}
+.tg-ink{background:rgba(10,8,0,.1);border-color:rgba(10,8,0,.2);color:rgba(250,240,208,.5)}
+
+/* ─── 按钮 ─── */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:8px 16px;
+  border-radius:var(--r);border:.5px solid;cursor:pointer;font-family:inherit;
+  transition:all .15s;text-decoration:none
+}
+.btn-sun{background:linear-gradient(90deg,var(--sun-m),var(--sun));border-color:var(--sun);color:var(--ink);font-weight:600}
+.btn-sun:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(232,160,32,.25)}
+.btn-ghost{background:transparent;border-color:rgba(212,148,58,.3);color:var(--sand)}
+.btn-ghost:hover{background:rgba(212,148,58,.08)}
+.btn-sea{background:var(--sea);border-color:var(--sea-l);color:var(--sea-f)}
+.btn-sea:hover{background:var(--sea-m)}
+.btn-palm{background:var(--palm);border-color:var(--palm-l);color:var(--cream)}
+.btn-palm:hover{background:var(--palm-m)}
+.btn-dusk{background:var(--dusk);border-color:var(--dusk-l);color:var(--dusk-f)}
+.btn-dusk:hover{background:var(--dusk-l)}
+.btn-eve{background:var(--eve);border-color:var(--eve-l);color:var(--dusk-f)}
+.btn-eve:hover{background:var(--eve-l)}
+.btn-bloom{background:var(--bloom);border-color:var(--bloom-l);color:var(--cream)}
+.btn-bloom:hover{background:var(--bloom-m)}
+.btn-sm{padding:5px 12px;font-size:12px;border-radius:8px}
+.btn-sea:hover{background:var(--sea-m)}
+.btn-palm{background:var(--palm);border-color:var(--palm-l);color:var(--cream)}
+.btn-palm:hover{background:var(--palm-m)}
+.btn-sm{padding:5px 12px;font-size:12px;border-radius:8px}
+
+/* ─── 进度条 ─── */
+.prog-bar{width:100%;background:rgba(255,255,255,.08);border-radius:4px;height:6px;overflow:hidden;margin-bottom:8px}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--palm-l),var(--sun),var(--dusk-l));border-radius:4px;transition:width .5s ease}
+.prog-label{display:flex;justify-content:space-between;font-size:12px;color:rgba(250,240,208,.5);margin-bottom:12px}
+
+/* ─── 信息框 ─── */
+.info{padding:10px 14px;border-radius:var(--r);border:.5px solid;font-size:13px;line-height:1.7;margin-bottom:12px;display:flex;gap:10px;align-items:flex-start}
+.info .ii{font-size:16px;flex-shrink:0;margin-top:2px}
+.info-ok{background:rgba(59,122,26,.08);border-color:rgba(59,122,26,.2);color:var(--palm-l)}
+.info-warn{background:rgba(212,148,58,.08);border-color:rgba(212,148,58,.2);color:var(--sand)}
+.info-sea{background:rgba(20,100,160,.06);border-color:rgba(20,100,160,.18);color:var(--sea-l)}
+.info-dusk{background:rgba(140,48,96,.07);border-color:rgba(140,48,96,.2);color:var(--dusk-l)}
+.info-red{background:rgba(196,40,48,.06);border-color:rgba(196,40,48,.2);color:var(--bloom)}
+
+/* ─── 聊天对话 ─── */
+.chat-box{
+  background:rgba(10,8,0,.5);border-radius:14px;overflow:hidden;margin-bottom:14px;
+  border:1px solid rgba(212,148,58,.15);backdrop-filter:blur(8px);
+}
+.chat-hd{
+  display:flex;align-items:center;gap:10px;padding:11px 15px;
+  background:rgba(0,0,0,.25);border-bottom:.5px solid rgba(212,148,58,.1)
+}
+.chat-av{
+  width:28px;height:28px;border-radius:50%;background:var(--sun-m);
+  border:1.5px solid var(--sun);display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:var(--cream)
+}
+.chat-name{font-size:13px;font-weight:600;color:var(--cream)}
+.chat-live{font-size:11px;color:rgba(122,175,60,.8);margin-left:auto;display:flex;align-items:center;gap:5px}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--palm-l);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.msgs{padding:14px;display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto}
+.msg-ws{
+  background:rgba(255,255,255,.06);border:.5px solid rgba(255,255,255,.1);
+  border-radius:14px 14px 14px 4px;padding:11px 14px;font-size:13px;
+  line-height:1.75;color:rgba(250,240,208,.82);max-width:92%;align-self:flex-start
+}
+.msg-ws strong{color:var(--sun-f)}
+.msg-me{
+  background:rgba(232,160,32,.14);border:.5px solid rgba(232,160,32,.22);
+  border-radius:14px 14px 4px 14px;padding:11px 14px;font-size:13px;
+  line-height:1.75;color:var(--sun-f);max-width:88%;align-self:flex-end
+}
+.msg-meta{font-size:11px;color:rgba(250,240,208,.28);margin-bottom:3px}
+.msg-meta.r{text-align:right}
+.qblock{display:flex;flex-direction:column;gap:5px;margin-top:8px}
+.qi{display:flex;gap:8px;align-items:flex-start;padding:7px 11px;background:rgba(255,255,255,.04);border:.5px solid rgba(255,255,255,.07);border-radius:9px;font-size:12px;color:rgba(250,240,208,.6)}
+.qi .qn{width:18px;height:18px;border-radius:50%;background:rgba(196,40,48,.3);border:.5px solid rgba(196,40,48,.5);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#F09595;flex-shrink:0;margin-top:1px}
+.chat-input-row{
+  display:flex;gap:8px;padding:11px 15px;border-top:.5px solid rgba(212,148,58,.1)
+}
+.chat-input{
+  flex:1;padding:9px 14px;border-radius:10px;border:.5px solid rgba(255,255,255,.1);
+  background:rgba(255,255,255,.05);font-size:13px;color:var(--cream);font-family:inherit;outline:none
+}
+.chat-input::placeholder{color:rgba(250,240,208,.28)}
+.chat-input:focus{border-color:rgba(232,160,32,.4)}
+.send-btn{
+  padding:9px 18px;border-radius:10px;background:var(--sun-m);border:none;
+  color:var(--cream);font-size:13px;cursor:pointer;font-family:inherit;transition:all .15s
+}
+.send-btn:hover{background:var(--sun)}
+
+/* ─── 图库 ─── */
+.img-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+.img-grid-4{grid-template-columns:repeat(4,1fr)!important}
+.img-t{
+  aspect-ratio:4/3;border-radius:12px;border:1.5px solid rgba(212,148,58,.2);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  transition:all .15s;position:relative;flex-direction:column;gap:5px;overflow:hidden;
+  background:rgba(255,255,255,.03)
+}
+.img-t:hover{border-color:rgba(232,160,32,.5);transform:scale(1.02)}
+.img-t.sel{border-color:var(--sun);border-width:2.5px;transform:scale(1.03)}
+.img-t.sel::after{
+  content:'✓';position:absolute;top:6px;right:6px;width:20px;height:20px;
+  border-radius:50%;background:var(--sun-m);color:#fff;font-size:11px;font-weight:700;
+  display:flex;align-items:center;justify-content:center
+}
+.img-t img{width:100%;height:100%;object-fit:cover}
+.img-placeholder{color:rgba(250,240,208,.3);text-align:center;padding:12px}
+
+/* ─── PPT 预览 ─── */
+.ppt-prev{
+  aspect-ratio:16/9;background:linear-gradient(135deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
+  border-radius:12px;border:1px solid rgba(212,148,58,.15);display:flex;align-items:center;justify-content:center;
+  overflow:hidden;position:relative;margin-bottom:12px
+}
+.ppt-prev-inner{width:100%;height:100%;padding:20px}
+
+/* ─── 展板预览 ─── */
+.board-prev{
+  aspect-ratio:594/841;max-height:500px;background:linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.02));
+  border-radius:10px;border:1px solid rgba(212,148,58,.15);display:flex;align-items:center;justify-content:center;
+  overflow:hidden;margin:0 auto;position:relative
+}
+
+/* ─── 风格选择卡片 ─── */
+.style-card{
+  border:1.5px solid transparent;border-radius:14px;padding:14px;cursor:pointer;
+  transition:all .15s;background:rgba(255,255,255,.03);text-align:center
+}
+.style-card:hover{transform:translateY(-2px);border-color:rgba(212,148,58,.25)}
+.style-card.on{border-color:var(--sun);background:rgba(232,160,32,.08)}
+.style-preview{height:60px;border-radius:10px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;font-size:24px}
+
+/* ─── 订阅卡片 ─── */
+.sub-card{
+  background:rgba(255,255,255,.04);border-radius:var(--r-lg);padding:24px;
+  border:1px solid rgba(212,148,58,.12);text-align:center;transition:all .2s
+}
+.sub-card:hover{border-color:rgba(232,160,32,.3);transform:translateY(-2px)}
+.sub-card.featured{border:2px solid var(--sun);background:rgba(232,160,32,.06);box-shadow:0 8px 30px rgba(232,160,32,.1)}
+.sub-name{font-size:18px;font-weight:700;color:var(--cream);margin-bottom:6px}
+.sub-price{font-size:36px;font-weight:700;color:var(--sun);margin:12px 0}
+.sub-price span{font-size:16px;font-weight:400;color:rgba(250,240,208,.5)}
+.sub-list{list-style:none;text-align:left;padding:0;margin:16px 0}
+.sub-list li{font-size:13px;color:rgba(250,240,208,.7);padding:6px 0;display:flex;align-items:center;gap:8px}
+.sub-list li .ok{color:var(--palm-l);font-weight:700}
+
+/* ─── 工作流画布 ─── */
+.wf-canvas{
+  flex:1;background:rgba(255,255,255,.02);border-radius:var(--r-lg);
+  border:1px solid rgba(212,148,58,.1);position:relative;overflow:auto;
+  min-height:400px;padding:20px
+}
+.wf-sidebar{width:220px;flex-shrink:0;padding:12px;border-radius:var(--r-lg);
+  background:rgba(255,255,255,.03);border:1px solid rgba(212,148,58,.1);margin-right:16px
+}
+.wf-prop{width:260px;flex-shrink:0;padding:12px;border-radius:var(--r-lg);
+  background:rgba(255,255,255,.03);border:1px solid rgba(212,148,58,.1);margin-left:16px
+}
+.node-palette-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;cursor:pointer;transition:all .12s;margin-bottom:3px;font-size:12px;color:rgba(250,240,208,.7);border:.5px solid transparent}
+.node-palette-item:hover{background:rgba(255,255,255,.06);border-color:rgba(212,148,58,.2)}
+
+/* ─── 项目卡片 ─── */
+.proj-card{
+  background:rgba(255,255,255,.04);border-radius:var(--r-lg);padding:16px;
+  border:1px solid rgba(212,148,58,.1);transition:all .15s;cursor:pointer
+}
+.proj-card:hover{border-color:rgba(212,148,58,.3);transform:translateY(-2px);box-shadow:0 4px 20px rgba(0,0,0,.2)}
+.proj-emoji{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:10px}
+
+/* ─── 空状态 ─── */
+.empty-state{text-align:center;padding:40px 20px;color:rgba(250,240,208,.3)}
+.empty-state .es-icon{font-size:48px;margin-bottom:12px;opacity:.5}
+
+/* ─── 表单元素 ─── */
+select,input,textarea{
+  padding:8px 12px;border-radius:8px;border:.5px solid rgba(212,148,58,.2);
+  background:rgba(255,255,255,.05);color:var(--cream);font-size:13px;font-family:inherit;outline:none
+}
+select:focus,input:focus,textarea:focus{border-color:rgba(232,160,32,.4)}
+select option{background:var(--ink-m);color:var(--cream)}
+
+/* ─── 滚动条 ─── */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(212,148,58,.25);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(212,148,58,.4)}
+
+/* ─── 动画 ─── */
+.fade-in{animation:fadeIn .35s ease-out}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.fade-in{animation:fadeIn .35s ease-out}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* ─── Toast ─── */
+#toast{
+  position:fixed;bottom:20px;right:20px;z-index:9999;
+  background:var(--ink-m);border:1px solid var(--sun);border-radius:12px;
+  padding:12px 18px;font-size:13px;color:var(--sun-f);display:flex;align-items:center;gap:10px;
+  opacity:0;transition:opacity .3s;pointer-events:none;max-width:320px;
+  backdrop-filter:blur(8px);box-shadow:0 8px 30px rgba(0,0,0,.3)
+}
+#toast.show{opacity:1}
+
+/* ─── 响应式 ─── */
+@media(max-width:768px){
+  #sidebar{display:none}
+  .qgrid{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+<link rel="stylesheet" href="css/game-enhance.css">
+</head>
+<body>
+<!-- 诊断脚本：捕获所有JS错误 -->
+<script>
+window._errors = [];
+window.onerror = function(msg, url, line, col, err) {
+    window._errors.push({msg: msg, url: url, line: line, col: col, stack: err ? err.stack : ''});
+    return true;
+};
+window.onunhandledrejection = function(e) {
+    window._errors.push({msg: 'Unhandled Promise: ' + e.reason, url: '', line: 0, stack: e.reason && e.reason.stack || ''});
+};
+</script>
+
+<!-- ═══════════════════ TOPBAR ═══════════════════ -->
+<div id="topbar">
+  <a href="#" class="logo" onclick="app.navigate('dashboard')">
+    <div class="logo-mark">🌴</div>
+    <span class="logo-name">伍师浅谈</span>
+    <span class="logo-sub">设计助手</span>
+  </a>
+  <nav>
+    <button class="npill on" data-page="dashboard" onclick="app.navigate('dashboard')">工作台</button>
+    <button class="npill" data-page="projects" onclick="app.navigate('projects')">项目库</button>
+    <button class="npill" data-page="workflow" onclick="app.navigate('workflow')">工作流</button>
+    <button class="npill" data-page="subscription" onclick="app.navigate('subscription')">订阅</button>
+  </nav>
+  <div id="xp-wrap">
+    <div id="xp-bar"><div id="xp-fill" style="width:0%"></div></div>
+    <div id="xp-num">开始设计</div>
+    <div class="av-btn" title="LA">LA</div>
+  </div>
+</div>
+
+<!-- ═══════════════════ APP ═══════════════════ -->
+<div id="app">
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="s-sec">设计流程</div>
+  <div class="s-item" onclick="app.navigate('guide')"><span class="si-icon">🌱</span>场地分析<span class="s-chip chip-lock">准备</span></div>
+  <div class="s-item" onclick="app.navigate('workflow')"><span class="si-icon">🧠</span>工作流画布<span class="s-chip chip-lock">准备</span></div>
+  <div class="s-item" onclick="app.navigate('image-studio')"><span class="si-icon">🎨</span>效果图与表达<span class="s-chip chip-lock">准备</span></div>
+  <div class="s-item" onclick="app.navigate('ppt-studio')"><span class="si-icon">📊</span>PPT与展板<span class="s-chip chip-lock">准备</span></div>
+  <div class="s-div"></div>
+  <div class="s-sec">工具</div>
+  <div class="s-item" onclick="app.navigate('projects')"><span class="si-icon">📁</span>项目库</div>
+  <div class="s-item" onclick="app.navigate('subscription')"><span class="si-icon">⭐</span>订阅</div>
+</div>
+
+<!-- CONTENT -->
+<div id="content">
+
+<!-- ═══════════════════ 1. 工作台 ═══════════════════ -->
+<section id="page-dashboard" class="page-section on">
+  <div class="hero">
+    <h1>让AI引导你完成每一个设计项目</h1>
+    <p>从场地分析到最终展板，AI反向提问帮你理清思路，油画般丰富的色彩节点化工作流，让每一步都清晰可见。伍师陪你，从概念到落地。</p>
+    <button class="hero-btn" onclick="app.navigate('guide')">
+      <span>🌱</span> 开始新项目
+    </button>
+  </div>
+
+  <div class="qgrid">
+    <div class="qcard" onclick="app.navigate('guide')">
+      <div class="qc-icon">🌱</div>
+      <h3>AI场地分析</h3>
+      <p>回答AI提问，明确设计方向</p>
+    </div>
+    <div class="qcard" onclick="app.navigate('workflow')">
+      <div class="qc-icon">🧠</div>
+      <h3>工作流画布</h3>
+      <p>可视化节点，随时调整参数</p>
+    </div>
+    <div class="qcard" onclick="app.navigate('image-studio')">
+      <div class="qc-icon">🎨</div>
+      <h3>效果图与表达</h3>
+      <p>生成方案图+景观叙事，图像表达设计故事</p>
+    </div>
+    <div class="qcard" onclick="app.navigate('ppt-studio')">
+      <div class="qc-icon">📊</div>
+      <h3>PPT与展板</h3>
+      <p>生成汇报文件与A1展板</p>
+    </div>
+  </div>
+
+  <div class="card c-palm">
+    <div class="card-hd">
+      <div class="card-title"><span class="ct-icon">📁</span>最近项目</div>
+      <button class="btn btn-ghost btn-sm" onclick="app.navigate('projects')">查看全部</button>
+    </div>
+    <div id="recent-projects-list">
+      <div class="empty-state">
+        <div class="es-icon">📁</div>
+        <p>还没有项目，点击"开始新项目"创建</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ 2. AI反向提问 ═══════════════════ -->
+<section id="page-guide" class="page-section">
+  <div id="guide-step-0">
+    <div class="card c-palm" style="width:100%;margin:0 auto 20px">
+      <div style="text-align:center;padding:20px">
+        <div style="width:64px;height:64px;background:linear-gradient(135deg,var(--palm-m),var(--palm-l));border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px">🌱</div>
+        <h2 style="font-size:22px;font-weight:700;color:var(--cream);margin-bottom:8px">选择项目类型</h2>
+        <p style="color:rgba(250,240,208,.6);font-size:14px">AI将根据项目类型提出针对性问题，帮助你理清设计思路</p>
+      </div>
+      <div id="project-type-grid" style="padding:0 16px 20px"></div>
+    </div>
+  </div>
+
+  <div id="guide-chat-area" style="display:none">
+    <div class="card c-palm">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span id="guide-step-label" style="font-size:12px;color:rgba(250,240,208,.5)">步骤 1 / 8</span>
+        <span id="guide-progress-pct" style="font-size:12px;color:var(--sun-f);font-weight:600">12%</span>
+      </div>
+      <div class="prog-bar"><div id="guide-progress-bar" class="prog-fill" style="width:12%"></div></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 12px;background:rgba(0,0,0,.2);border-radius:8px">
+        <span id="guide-current-type" class="tag tg-palm">城市公园</span>
+        <span style="color:rgba(250,240,208,.3)">|</span>
+        <span id="guide-current-phase" style="font-size:12px;color:rgba(250,240,208,.5)">需求调研阶段</span>
+      </div>
+    </div>
+
+    <div class="chat-box">
+      <div class="chat-hd">
+        <div class="chat-av">🌴</div>
+        <div class="chat-name">伍师AI</div>
+        <div class="chat-live"><div class="live-dot"></div>在线</div>
+      </div>
+      <div id="guide-chat-history" class="msgs" style="min-height:300px"></div>
+      <div id="guide-input-area" class="chat-input-row">
+        <textarea id="guide-user-input" rows="1" class="chat-input" style="resize:none" placeholder="请详细回答AI的问题..."></textarea>
+        <button class="send-btn" onclick="aiGuide.submitAnswer()">发送</button>
+      </div>
+      <div id="guide-completed-area" style="display:none;text-align:center;padding:16px">
+        <p style="color:var(--palm-l);font-weight:600;margin-bottom:12px">✅ 需求调研完成！AI已生成完整设计方案</p>
+        <button class="btn btn-sun" onclick="aiGuide.finishAndGoWorkflow()">进入工作流画布</button>
+      </div>
+    </div>
+
+    <div id="guide-live-preview" class="card c-sea" style="display:none">
+      <div class="card-title" style="margin-bottom:12px"><span class="ct-icon">💡</span>实时方案概览</div>
+      <div id="guide-preview-content" style="font-size:13px;line-height:1.8;color:rgba(250,240,208,.75)"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ 3. 游戏化通关工作流 ═══════════════════ -->
+<section id="page-workflow" class="page-section">
+  <div id="game-workflow-container">
+    <!-- 由 gameWorkflow.render() 动态渲染 -->
+    <div style="text-align:center;padding:60px 20px">
+      <div style="font-size:48px;margin-bottom:16px" class="game-pulse">🎮</div>
+      <h2 style="font-size:22px;font-weight:700;color:var(--cream);margin-bottom:8px">伍师设计通关游戏</h2>
+      <p style="color:rgba(250,240,208,.5)">像玩游戏一样完成景观设计，每过一关解锁新技能...</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ 4. 效果图与表达（图像工作室 + 景观叙事）═══════════════════ -->
+<section id="page-image-studio" class="page-section">
+  <!-- 游戏化顶部状态栏 -->
+  <div id="img-game-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:12px 16px;background:rgba(255,255,255,.04);border-radius:var(--r);border:1px solid rgba(212,148,58,.1)">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--sea-m),var(--palm-m));display:flex;align-items:center;justify-content:center;font-size:18px">🌴</div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--cream)">伍师 · 效果图与表达工坊</div>
+        <div id="img-master-guide" style="font-size:11px;color:rgba(250,240,208,.5)">先写故事，再出图。图是故事的视觉翻译。</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:14px">⭐</span>
+        <span id="img-xp-text" style="font-size:12px;color:var(--sun-l)">效果图与表达 Lv.1</span>
+      </div>
+      <div style="width:100px;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden">
+        <div id="img-xp-bar" style="width:0%;height:100%;background:linear-gradient(90deg,var(--sea-l),var(--sun-l));transition:width .5s"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:16px">
+    <!-- 左侧：工具面板 -->
+    <div style="width:340px;flex-shrink:0;display:flex;flex-direction:column;gap:12px">
+
+      <!-- 景观叙事 / 汇报 -->
+      <div class="card c-bloom" id="narrative-panel">
+        <div class="card-title" style="margin-bottom:12px"><span class="ct-icon">📖</span>景观叙事 / 汇报</div>
+        <div style="font-size:13px;color:rgba(250,240,208,.6);margin-bottom:10px;line-height:1.7">
+          把景观故事通过语言、图片、动画表达出来。叙事是设计的灵魂。
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('🎙️ 语音叙事功能开发中','info')">🎙️ 语音叙事</button>
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('🎬 动画表达功能开发中','info')">🎬 动画表达</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('📝 图文叙事功能开发中','info')">📝 图文叙事</button>
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('🎮 交互叙事功能开发中','info')">🎮 交互叙事</button>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div>
+            <label style="display:block;font-size:11px;color:rgba(250,240,208,.5);margin-bottom:4px">📍 场地故事</label>
+            <textarea id="img-nar-story" rows="2" style="width:100%;font-size:12px" placeholder="这片场地的前世今生..." oninput="imageStudio.onNarrativeChange()"></textarea>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;color:rgba(250,240,208,.5);margin-bottom:4px">💡 设计理念</label>
+            <textarea id="img-nar-concept" rows="2" style="width:100%;font-size:12px" placeholder="核心设计策略..." oninput="imageStudio.onNarrativeChange()"></textarea>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;color:rgba(250,240,208,.5);margin-bottom:4px">🚶 空间体验</label>
+            <textarea id="img-nar-experience" rows="2" style="width:100%;font-size:12px" placeholder="人在其中如何感受..." oninput="imageStudio.onNarrativeChange()"></textarea>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;color:rgba(250,240,208,.5);margin-bottom:4px">🔮 未来愿景</label>
+            <textarea id="img-nar-future" rows="2" style="width:100%;font-size:12px" placeholder="三年、五年、十年后..." oninput="imageStudio.onNarrativeChange()"></textarea>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:6px;margin-top:10px">
+          <button class="btn btn-ghost btn-sm" style="flex:1;font-size:11px" onclick="imageStudio.saveNarrative()">💾 保存叙事</button>
+          <button class="btn btn-sea btn-sm" style="flex:1;font-size:11px" onclick="imageStudio.generateNarrativeByAI()">🤖 AI生成</button>
+        </div>
+
+        <div id="narrative-status" style="margin-top:8px;padding:6px 10px;border-radius:6px;font-size:11px;display:none"></div>
+      </div>
+
+      <!-- 游戏化改造 -->
+      <div class="card c-dusk">
+        <div class="card-title" style="margin-bottom:12px"><span class="ct-icon">🎮</span>游戏化改造</div>
+        <div style="font-size:13px;color:rgba(250,240,208,.6);line-height:1.7;margin-bottom:12px">
+          将效果图、PPT、展板等所有内容游戏化改造，让设计像通关一样好玩。
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('🎲 随机事件功能开发中','info')">🎲 随机事件</button>
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('🏆 成就系统功能开发中','info')">🏆 成就系统</button>
+        </div>
+      </div>
+
+      <!-- 提示词编辑 -->
+      <div class="card c-sun">
+        <div class="card-title" style="margin-bottom:12px"><span class="ct-icon">✨</span>提示词编辑</div>
+        <div style="margin-bottom:10px">
+          <label style="display:block;font-size:12px;color:rgba(250,240,208,.5);margin-bottom:6px">图像类型</label>
+          <select id="img-type-select" style="width:100%" onchange="imageStudio.onTypeChange()">
+            <option value="birdseye">鸟瞰图</option>
+            <option value="perspective">人视效果图</option>
+            <option value="section">剖面图</option>
+            <option value="detail">节点详图</option>
+            <option value="night">夜景图</option>
+            <option value="plant">植物配置图</option>
+            <option value="material">材质铺装图</option>
+          </select>
+        </div>
+        <div style="margin-bottom:10px">
+          <label style="display:block;font-size:12px;color:rgba(250,240,208,.5);margin-bottom:6px">风格参考</label>
+          <div id="style-reference-tags" style="display:flex;gap:6px;flex-wrap:wrap">
+            <span class="tag tg-ink" style="cursor:pointer" onclick="imageStudio.toggleStyle(this)">现代简约</span>
+            <span class="tag tg-ink" style="cursor:pointer" onclick="imageStudio.toggleStyle(this)">自然生态</span>
+            <span class="tag tg-ink" style="cursor:pointer" onclick="imageStudio.toggleStyle(this)">中式园林</span>
+            <span class="tag tg-ink" style="cursor:pointer" onclick="imageStudio.toggleStyle(this)">工业风</span>
+            <span class="tag tg-ink" style="cursor:pointer" onclick="imageStudio.toggleStyle(this)">参数化</span>
+          </div>
+        </div>
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <label style="font-size:12px;color:rgba(250,240,208,.5)">正提示词</label>
+            <button class="voice-btn" id="voice-btn-positive" onclick="imageStudio.toggleVoiceInput('positive')" title="点击开始语音输入">🎙️</button>
+          </div>
+          <textarea id="img-prompt-positive" rows="5" style="width:100%;font-family:monospace;font-size:12px"></textarea>
+          <div id="voice-status-positive" style="font-size:11px;color:var(--sun);margin-top:4px;display:none;align-items:center;gap:6px">
+            <span class="live-dot"></span> 正在聆听... 说出你的设计想法
+          </div>
+        </div>
+        <div style="margin-bottom:10px">
+          <label style="display:block;font-size:12px;color:rgba(250,240,208,.5);margin-bottom:6px">负提示词</label>
+          <textarea id="img-prompt-negative" rows="2" style="width:100%;font-family:monospace;font-size:12px"></textarea>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="imageStudio.loadTemplate()">加载模板</button>
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="imageStudio.savePrompt()">保存</button>
+        </div>
+      </div>
+
+      <!-- 自检与确认 -->
+      <div class="card c-bloom">
+        <div class="card-title" style="margin-bottom:12px"><span class="ct-icon">✅</span>自检与确认</div>
+        <div id="self-check-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="sc-narrative" style="accent-color:var(--sun)" onchange="imageStudio.updateGameProgress()"> <span>已完成景观叙事</span></label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="sc-prompt" style="accent-color:var(--sun)"> <span>提示词包含项目核心要素</span></label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="sc-style" style="accent-color:var(--sun)"> <span>风格与项目定位一致</span></label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="sc-ref" style="accent-color:var(--sun)"> <span>已上传必要的参考图</span></label>
+        </div>
+        <div style="padding-top:10px;border-top:1px solid rgba(212,148,58,.1)">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+            <input type="checkbox" id="expert-review-check" style="accent-color:var(--sun)">
+            <span style="color:var(--sun);font-weight:600">需要专家审核（30💰）</span>
+          </label>
+        </div>
+        <button class="btn btn-sun" style="width:100%;margin-top:10px" onclick="imageStudio.confirmAndGenerate()">确认并生成</button>
+      </div>
+    </div>
+
+    <!-- 右侧：生成区 -->
+    <div style="flex:1">
+      <div class="card c-sun">
+        <div class="card-hd">
+          <div class="card-title"><span class="ct-icon">🎨</span>生成方案</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="imageStudio.uploadReference()">🖼️ 上传参考图</button>
+            <button class="btn btn-sun btn-sm" onclick="imageStudio.generateBatch()">⚡ 批量生成</button>
+            <span style="font-size:12px;color:rgba(250,240,208,.4)">已选: <span id="selected-count" style="color:var(--sun-f);font-weight:600">0</span> 张</span>
+            <button class="btn btn-ghost btn-sm" onclick="imageStudio.clearGallery()">清空</button>
+          </div>
+        </div>
+        <div id="image-gallery" class="img-grid img-grid-4">
+          <div class="img-t" style="grid-column:span 2">
+            <div class="img-placeholder">
+              <div style="font-size:32px;margin-bottom:8px">🎨</div>
+              <p style="font-size:13px">点击"批量生成"开始</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card c-dusk">
+        <div class="card-hd">
+          <div class="card-title"><span class="ct-icon">🎯</span>出图画板（已确认方案）</div>
+          <button class="btn btn-ghost btn-sm" onclick="imageStudio.exportBoard()">导出画板</button>
+        </div>
+        <div id="output-board" class="img-grid">
+          <div class="img-t" style="grid-column:span 2">
+            <div class="img-placeholder">
+              <p style="font-size:13px">从上方选择一张方案放入画板</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ 5. PPT与展板（游戏化）═══════════════════ -->
+<section id="page-ppt-studio" class="page-section">
+  <!-- 游戏化顶部状态栏 -->
+  <div id="ppt-game-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:12px 16px;background:rgba(255,255,255,.04);border-radius:var(--r);border:1px solid rgba(212,148,58,.1)">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--sea-m),var(--palm-m));display:flex;align-items:center;justify-content:center;font-size:18px">🌴</div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--cream)">伍师 · 汇报工坊</div>
+        <div id="ppt-master-guide" style="font-size:11px;color:rgba(250,240,208,.5)">好设计需要好汇报。PPT讲逻辑，展板抓眼球。</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:14px">⭐</span>
+        <span id="ppt-xp-text" style="font-size:12px;color:var(--sun-l)">汇报工坊 Lv.1</span>
+      </div>
+      <div style="width:100px;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden">
+        <div id="ppt-xp-bar" style="width:0%;height:100%;background:linear-gradient(90deg,var(--sea-l),var(--sun-l));transition:width .5s"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:16px">
+    <!-- 左侧：工具面板 -->
+    <div style="width:340px;flex-shrink:0;display:flex;flex-direction:column;gap:12px">
+
+      <!-- 景观叙事 / 汇报 -->
+      <div class="card c-bloom" id="ppt-narrative-panel">
+        <div class="card-title" style="margin-bottom:12px"><span class="ct-icon">📖</span>景观叙事 / 汇报</div>
+        <div style="font-size:13px;color:rgba(250,240,208,.6);line-height:1.7;margin-bottom:12px">
+          把景观故事通过语言、图片、动画表达出来。让设计会说话。
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('🎙️ 语音叙事功能开发中','info')">🎙️ 语音叙事</button>
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('🎬 动画表达功能开发中','info')">🎬 动画表达</button>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('📝 图文叙事功能开发中','info')">📝 图文叙事</button>
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('🎮 交互叙事功能开发中','info')">🎮 交互叙事</button>
+        </div>
+      </div>
+
+      <!-- 游戏化改造 -->
+      <div class="card c-dusk">
+        <div class="card-title" style="margin-bottom:12px"><span class="ct-icon">🎮</span>游戏化改造</div>
+        <div style="font-size:13px;color:rgba(250,240,208,.6);line-height:1.7;margin-bottom:12px">
+          将PPT、展板、效果图等所有内容游戏化改造，让汇报像通关一样有趣。
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('🎲 随机事件功能开发中','info')">🎲 随机事件</button>
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('🏆 成就系统功能开发中','info')">🏆 成就系统</button>
+        </div>
+      </div>
+
+      <!-- 叙事素材（同步） -->
+      <div class="card c-bloom" id="ppt-narrative-sync-panel" style="display:none">
+        <div class="card-title" style="margin-bottom:12px"><span class="ct-icon">📖</span>叙事素材（来自效果图与表达）</div>
+        <div id="ppt-narrative-content" style="font-size:12px;color:rgba(250,240,208,.6);line-height:1.7">
+          <div style="padding:12px;text-align:center;color:rgba(250,240,208,.3)">
+            <div style="font-size:24px;margin-bottom:8px">📖</div>
+            <p>先去「效果图与表达」页面完成景观叙事</p>
+            <p style="font-size:11px;margin-top:4px">叙事内容会自动同步到这里</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- PPT大纲生成 -->
+      <div class="card c-dusk">
+        <div class="card-title" style="margin-bottom:12px"><span class="ct-icon">📊</span>PPT大纲生成</div>
+        <div style="margin-bottom:10px">
+          <label style="display:block;font-size:12px;color:rgba(250,240,208,.5);margin-bottom:6px">汇报类型</label>
+          <select id="ppt-type" style="width:100%">
+            <option value="competition">竞赛汇报</option>
+            <option value="academic">学术汇报</option>
+            <option value="client">客户汇报</option>
+            <option value="review">课程答辩</option>
+          </select>
+        </div>
+        <div style="margin-bottom:10px">
+          <label style="display:block;font-size:12px;color:rgba(250,240,208,.5);margin-bottom:6px">页数</label>
+          <input type="number" id="ppt-pages" value="15" min="5" max="50" style="width:100%">
+        </div>
+        <div style="margin-bottom:10px">
+          <label style="display:block;font-size:12px;color:rgba(250,240,208,.5);margin-bottom:6px">核心内容（DeepSeek/Kimi生成）</label>
+          <textarea id="ppt-content" rows="5" style="width:100%;font-size:12px" placeholder="AI将根据项目需求自动生成大纲..."></textarea>
+        </div>
+        <button class="btn btn-sea" style="width:100%" onclick="pptGen.generateOutline()">⚡ DeepSeek/Kimi生成大纲</button>
+      </div>
+
+      <!-- 风格与模板 -->
+      <div class="card c-dusk">
+        <div class="card-title" style="margin-bottom:12px"><span class="ct-icon">🎨</span>风格与模板</div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px">
+          <div class="style-card on" onclick="pptGen.selectStyle(this,'academic')">
+            <div class="style-preview" style="background:linear-gradient(135deg,#1B4A0A,#3B7A1A)">📘</div>
+            <div style="font-size:12px;font-weight:600">学术风格</div>
+          </div>
+          <div class="style-card" onclick="pptGen.selectStyle(this,'minimal')">
+            <div class="style-preview" style="background:linear-gradient(135deg,#2A2A2A,#555)">⬜</div>
+            <div style="font-size:12px;font-weight:600">极简风格</div>
+          </div>
+          <div class="style-card" onclick="pptGen.selectStyle(this,'creative')">
+            <div class="style-preview" style="background:linear-gradient(135deg,#8C3060,#B45890)">🎨</div>
+            <div style="font-size:12px;font-weight:600">竞赛风格</div>
+          </div>
+          <div class="style-card" onclick="pptGen.selectStyle(this,'business')">
+            <div class="style-preview" style="background:linear-gradient(135deg,#0A3B6E,#3A9FD4)">💼</div>
+            <div style="font-size:12px;font-weight:600">商务风格</div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="width:100%" onclick="pptGen.uploadReferencePPT()">上传参考PPT</button>
+      </div>
+
+      <!-- A1展板生成 -->
+      <div class="card c-eve">
+        <div class="card-title" style="margin-bottom:12px"><span class="ct-icon">📐</span>A1展板生成</div>
+        <div style="margin-bottom:10px">
+          <label style="display:block;font-size:12px;color:rgba(250,240,208,.5);margin-bottom:6px">展板内容来源</label>
+          <select id="board-source" style="width:100%">
+            <option value="ppt">基于PPT内容</option>
+            <option value="custom">自定义内容</option>
+            <option value="mixed">混合（PPT+自定义）</option>
+          </select>
+        </div>
+        <div style="margin-bottom:10px">
+          <label style="display:block;font-size:12px;color:rgba(250,240,208,.5);margin-bottom:6px">排版风格</label>
+          <select id="board-layout" style="width:100%">
+            <option value="standard">标准竞赛排版</option>
+            <option value="horizontal">横向分区</option>
+            <option value="grid">网格布局</option>
+            <option value="free">自由布局</option>
+          </select>
+        </div>
+        <button class="btn btn-bloom" style="width:100%" onclick="boardGen.generate()">🎨 生成A1展板</button>
+      </div>
+    </div>
+
+    <!-- 右侧：预览区 -->
+    <div style="flex:1">
+      <div class="card c-dusk">
+        <div class="card-hd">
+          <div class="card-title"><span class="ct-icon">📊</span>PPT预览</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="pptGen.prevSlide()">◀</button>
+            <span id="slide-indicator" style="font-size:12px;color:rgba(250,240,208,.5)">1 / 15</span>
+            <button class="btn btn-ghost btn-sm" onclick="pptGen.nextSlide()">▶</button>
+          </div>
+        </div>
+        <div class="ppt-prev">
+          <div id="ppt-slide-content" class="ppt-prev-inner">
+            <div style="text-align:center;color:rgba(250,240,208,.3)">
+              <div style="font-size:48px;margin-bottom:16px">📊</div>
+              <p style="font-size:16px">点击"DeepSeek/Kimi生成大纲"开始</p>
+              <p style="font-size:13px;margin-top:8px">AI将基于项目需求自动生成PPT大纲</p>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="pptGen.iterateSlide()">AI调整</button>
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="pptGen.editSlide()">手动编辑</button>
+          <button class="btn btn-palm btn-sm" style="flex:1" onclick="pptGen.exportPPT()">导出PPT</button>
+        </div>
+      </div>
+
+      <div class="card c-eve">
+        <div class="card-hd">
+          <div class="card-title"><span class="ct-icon">📐</span>A1展板预览</div>
+          <span style="font-size:12px;color:rgba(250,240,208,.4)">594mm × 841mm</span>
+        </div>
+        <div class="board-prev" id="board-preview-area">
+          <div style="text-align:center;color:rgba(250,240,208,.3);padding:20px">
+            <div style="font-size:36px;margin-bottom:12px">📐</div>
+            <p style="font-size:13px">点击"生成A1展板"开始</p>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="boardGen.iterate()">AI迭代优化</button>
+          <button class="btn btn-bloom btn-sm" style="flex:1" onclick="boardGen.export()">导出高清展板</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ 6. 项目库（我的项目 + 社区作品 + 审图）═══════════════════ -->
+<section id="page-projects" class="page-section">
+  <!-- 顶部标签切换 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div>
+      <h2 style="font-size:20px;font-weight:700;color:var(--cream)">项目库</h2>
+      <p style="font-size:13px;color:rgba(250,240,208,.5);margin-top:4px">管理项目 · 观摩大神 · 邀请审图</p>
+    </div>
+    <button class="btn btn-sun btn-sm" onclick="app.navigate('guide')">
+      <span>➕</span> 新建项目
+    </button>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid rgba(212,148,58,.12);padding-bottom:12px">
+    <button id="tab-my-projects" class="btn btn-sun btn-sm" onclick="app.switchProjectTab('my')">📁 我的项目</button>
+    <button id="tab-community" class="btn btn-ghost btn-sm" onclick="app.switchProjectTab('community')">🏆 社区作品</button>
+  </div>
+
+  <!-- ═════ 我的项目 ═════ -->
+  <div id="panel-my-projects">
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <button class="tag tg-sun" style="cursor:pointer;flex:1;white-space:nowrap" data-filter="all" onclick="app.filterProjects('all')">全部</button>
+      <button class="tag tg-ink" style="cursor:pointer;flex:1;white-space:nowrap" data-filter="villa" onclick="app.filterProjects('villa')">🏡 别墅庭院</button>
+      <button class="tag tg-ink" style="cursor:pointer;flex:1;white-space:nowrap" data-filter="realestate" onclick="app.filterProjects('realestate')">🏘️ 地产景观</button>
+      <button class="tag tg-ink" style="cursor:pointer;flex:1;white-space:nowrap" data-filter="park" onclick="app.filterProjects('park')">🌳 公园设计</button>
+      <button class="tag tg-ink" style="cursor:pointer;flex:1;white-space:nowrap" data-filter="community" onclick="app.filterProjects('community')">🌻 社区花园</button>
+      <button class="tag tg-ink" style="cursor:pointer;flex:1;white-space:nowrap" data-filter="rural" onclick="app.filterProjects('rural')">🌾 乡村景观</button>
+      <button class="tag tg-ink" style="cursor:pointer;flex:1;white-space:nowrap" data-filter="commercial" onclick="app.filterProjects('commercial')">🏢 商业空间</button>
+      <button class="tag tg-ink" style="cursor:pointer;flex:1;white-space:nowrap" data-filter="campus" onclick="app.filterProjects('campus')">🎓 校园设计</button>
+      <button class="tag tg-ink" style="cursor:pointer" data-filter="riverside" onclick="app.filterProjects('riverside')">🌊 滨水空间</button>
+      <button class="tag tg-ink" style="cursor:pointer" data-filter="tourism" onclick="app.filterProjects('tourism')">⛩️ 文旅景观</button>
+    </div>
+
+    <div id="projects-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+      <div class="empty-state" style="grid-column:span 3">
+        <div class="es-icon">📁</div>
+        <p>项目库为空</p>
+        <button class="btn btn-sun btn-sm" style="margin-top:12px" onclick="app.navigate('guide')">创建第一个项目</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════ 社区作品 ═════ -->
+  <div id="panel-community" style="display:none">
+    <!-- 社区筛选 -->
+    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center">
+      <button class="tag tg-sun" style="cursor:pointer;flex:1;min-width:100px;justify-content:center;padding:8px 16px;font-size:15px" onclick="app.filterCommunity('all')">全部</button>
+      <button class="tag tg-ink" style="cursor:pointer;flex:1;min-width:100px;justify-content:center;padding:8px 16px;font-size:15px" onclick="app.filterCommunity('god')">👑 大神</button>
+      <button class="tag tg-ink" style="cursor:pointer;flex:1;min-width:100px;justify-content:center;padding:8px 16px;font-size:15px" onclick="app.filterCommunity('master')">🎖️ 大牛</button>
+      <button class="tag tg-ink" style="cursor:pointer;flex:1;min-width:100px;justify-content:center;padding:8px 16px;font-size:15px" onclick="app.filterCommunity('expert')">⭐ 高手</button>
+      <button class="tag tg-ink" style="cursor:pointer;flex:1;min-width:100px;justify-content:center;padding:8px 16px;font-size:15px" onclick="app.filterCommunity('rising')">🚀 新锐</button>
+      <div style="display:flex;align-items:center;gap:8px;min-width:140px">
+        <span style="font-size:13px;color:rgba(250,240,208,.4)">排序</span>
+        <select id="community-sort" style="flex:1;min-width:100px" onchange="app.sortCommunity()">
+          <option value="hot">🔥 最热</option>
+          <option value="new">🆕 最新</option>
+          <option value="likes">👍 最多赞</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 社区作品网格 -->
+    <div id="community-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+      <!-- 由 JS 动态渲染 -->
+    </div>
+  </div>
+
+  <!-- ═════ 作品详情弹窗 ═════ -->
+  <div id="work-detail-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:10000;align-items:center;justify-content:center;padding:20px;overflow:auto">
+    <div style="width:800px;max-width:95vw;max-height:90vh;overflow:auto;background:var(--deep);border:1px solid rgba(212,148,58,.2);border-radius:var(--r);padding:24px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div id="modal-work-title" style="font-size:18px;font-weight:700;color:var(--cream)"></div>
+        <button onclick="document.getElementById('work-detail-modal').style.display='none'" style="background:none;border:none;color:rgba(250,240,208,.5);cursor:pointer;font-size:20px">×</button>
+      </div>
+      <div id="modal-work-content"></div>
+    </div>
+  </div>
+
+  <!-- ═════ 邀请审图弹窗 ═════ -->
+  <div id="review-request-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:10001;align-items:center;justify-content:center;padding:20px">
+    <div style="width:480px;max-width:95vw;background:var(--deep);border:1px solid rgba(212,148,58,.2);border-radius:var(--r);padding:24px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div style="font-size:16px;font-weight:700;color:var(--cream)">📝 邀请审图</div>
+        <button onclick="document.getElementById('review-request-modal').style.display='none'" style="background:none;border:none;color:rgba(250,240,208,.5);cursor:pointer;font-size:20px">×</button>
+      </div>
+      <div id="review-request-content"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ 7. 订阅 ═══════════════════ -->
+<section id="page-subscription" class="page-section">
+  <div style="text-align:center;margin-bottom:32px">
+    <h2 style="font-size:28px;font-weight:700;color:var(--cream);margin-bottom:8px">选择适合你的方案</h2>
+    <p style="font-size:14px;color:rgba(250,240,208,.5)">解锁更多AI生成次数与高级功能</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:900px;margin:0 auto">
+    <div class="sub-card">
+      <div class="sub-name">免费体验</div>
+      <div class="sub-price">¥0<span>/月</span></div>
+      <ul class="sub-list">
+        <li><span class="ok">✓</span> 1个项目体验</li>
+        <li><span class="ok">✓</span> 基础模板库</li>
+        <li><span class="ok">✓</span> 标准分辨率输出</li>
+        <li><span style="color:rgba(250,240,208,.3)">✗</span> <span style="color:rgba(250,240,208,.4)">带水印</span></li>
+      </ul>
+      <button class="btn btn-ghost" style="width:100%">当前方案</button>
+    </div>
+
+    <div class="sub-card featured">
+      <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--sun);color:var(--ink);font-size:11px;font-weight:700;padding:4px 14px;border-radius:20px">推荐</div>
+      <div class="sub-name">个人版</div>
+      <div class="sub-price">¥39<span>/月</span></div>
+      <ul class="sub-list">
+        <li><span class="ok">✓</span> 无限个人项目</li>
+        <li><span class="ok">✓</span> 全模板库访问</li>
+        <li><span class="ok">✓</span> 基础自检流程</li>
+        <li><span class="ok">✓</span> 无水印输出</li>
+        <li><span class="ok">✓</span> 50次/月 AI生成</li>
+      </ul>
+      <button class="btn btn-sun" style="width:100%" onclick="app.upgradePlan('personal')">立即升级</button>
+    </div>
+
+    <div class="sub-card">
+      <div class="sub-name">专业版</div>
+      <div class="sub-price">¥129<span>/月</span></div>
+      <ul class="sub-list">
+        <li><span class="ok">✓</span> 包含个人版全部</li>
+        <li><span class="ok">✓</span> 教师审核流程</li>
+        <li><span class="ok">✓</span> 高分辨率输出</li>
+        <li><span class="ok">✓</span> 风格参考库</li>
+        <li><span class="ok">✓</span> 200次/月 AI生成</li>
+      </ul>
+      <button class="btn btn-sea" style="width:100%" onclick="app.upgradePlan('pro')">立即升级</button>
+    </div>
+  </div>
+</section>
+
+</div><!-- /content -->
+</div><!-- /app -->
+
+<div id="toast"></div>
+
+<script src="js/api-config.js"></script>
+<script src="js/ai-guide.js"></script>
+<script src="js/workflow.js"></script>
+<script src="js/image-studio.js"></script>
+<script src="js/ppt-gen.js"></script>
+<script src="js/board-gen.js"></script>
+<script src="js/app.js"></script>
+
+<!-- 诊断面板：显示JS错误 -->
+<div id="diag-panel" style="position:fixed;bottom:0;left:0;right:0;background:#1a0a00;border-top:2px solid #e8a020;padding:12px 16px;z-index:99999;max-height:200px;overflow-y:auto;display:none">
+  <div style="font-size:12px;color:#e8a020;font-weight:700;margin-bottom:8px">🐛 JS 诊断面板</div>
+  <pre id="diag-content" style="font-size:11px;color:#faf0d0;line-height:1.6;margin:0;white-space:pre-wrap"></pre>
+</div>
+<script>
+window.addEventListener('load', function() {
+    var panel = document.getElementById('diag-panel');
+    var content = document.getElementById('diag-content');
+    if (window._errors && window._errors.length > 0) {
+        panel.style.display = 'block';
+        content.textContent = window._errors.map(function(e) {
+            return (e.msg || 'Unknown') + ' @ ' + (e.url || 'inline') + ':' + e.line + ':' + (e.col || 0) + '\n' + (e.stack || '');
+        }).join('\n---\n');
+    } else {
+        panel.style.display = 'block';
+        content.textContent = '✅ 页面加载完成，未发现JS错误。如果按钮仍无法点击，请检查：\n1. 是否有CSS遮挡（z-index/pointer-events）\n2. 按钮的onclick属性是否正确绑定\n3. 浏览器控制台(F12)是否有网络请求失败';
+    }
+    // 也显示全局变量状态
+    content.textContent += '\n\n📊 全局变量检查：\n';
+    content.textContent += 'app: ' + (typeof window.app !== 'undefined' ? '✅ 已定义' : '❌ 未定义') + '\n';
+    content.textContent += 'aiGuide: ' + (typeof window.aiGuide !== 'undefined' ? '✅ 已定义' : '❌ 未定义') + '\n';
+    content.textContent += 'gameWorkflow: ' + (typeof window.gameWorkflow !== 'undefined' ? '✅ 已定义' : '❌ 未定义') + '\n';
+    content.textContent += 'imageStudio: ' + (typeof window.imageStudio !== 'undefined' ? '✅ 已定义' : '❌ 未定义') + '\n';
+    content.textContent += 'pptGen: ' + (typeof window.pptGen !== 'undefined' ? '✅ 已定义' : '❌ 未定义') + '\n';
+});
+</script>
+</body>
+</html>

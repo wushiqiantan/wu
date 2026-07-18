@@ -1,0 +1,143 @@
+/* ============================================
+   AI设计工作流平台 - 全局样式
+   ============================================ */
+
+/* 基础重置与字体 */
+* { box-sizing: border-box; }
+
+/* 页面切换动画 */
+.page-section {
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 消息淡入 */
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Toast上浮 */
+.animate-fade-up {
+    animation: fadeUp 0.3s ease-out;
+}
+
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* 工作流节点样式 */
+.workflow-node {
+    transition: transform 0.1s, box-shadow 0.2s;
+}
+.workflow-node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px -5px rgba(0,0,0,0.1);
+}
+
+/* 连接点 */
+.connection-point {
+    transition: all 0.2s;
+    opacity: 0.6;
+}
+.workflow-node:hover .connection-point {
+    opacity: 1;
+}
+
+/* 节点选中态 */
+.workflow-node.ring-2 {
+    animation: pulse-ring 2s infinite;
+}
+
+@keyframes pulse-ring {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(156, 163, 175, 0.5); }
+    50% { box-shadow: 0 0 0 4px rgba(156, 163, 175, 0.3); }
+}
+
+/* 导航按钮激活态 */
+.nav-btn {
+    position: relative;
+}
+.nav-btn::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #16a34a;
+    border-radius: 2px;
+    transform: scaleX(0);
+    transition: transform 0.2s;
+}
+.nav-btn.text-brand-600::after {
+    transform: scaleX(1);
+}
+
+/* 风格卡片选中 */
+.style-card {
+    transition: all 0.2s;
+}
+.style-card:hover {
+    transform: translateY(-2px);
+}
+
+/* 画廊项悬停 */
+#image-gallery > div {
+    transition: all 0.2s;
+}
+#image-gallery > div:hover {
+    transform: scale(1.02);
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* 输入框聚焦 */
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+}
+
+/* 按钮点击反馈 */
+button:active {
+    transform: scale(0.98);
+}
+
+/* 进度条动画 */
+#guide-progress-bar {
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .workflow-node {
+        min-width: 140px;
+    }
+    #workflow-canvas-area {
+        overflow-x: auto;
+    }
+}
+
+/* 打印样式（导出时用） */
+@media print {
+    nav, .no-print { display: none !important; }
+    .page-section { display: block !important; }
+}

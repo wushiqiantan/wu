@@ -1,0 +1,275 @@
+/**
+ * 游戏化沉浸式增强 — 大号游戏UI风格
+ * 核心：画面感、大字号、大间距、大按钮
+ */
+
+/* ═══════════════════════════════════════════════════════
+   全局字号放大
+   ═══════════════════════════════════════════════════════ */
+html{font-size:18px}
+body{font-size:18px;line-height:1.6}
+
+/* ═══════════════════════════════════════════════════════
+   页面四角游戏化装饰边框
+   ═══════════════════════════════════════════════════════ */
+.page-section{
+  position:relative;
+}
+.page-section::before,.page-section::after{
+  content:'';position:absolute;width:32px;height:32px;pointer-events:none;z-index:2;
+  border:2px solid rgba(212,148,58,.2);transition:all .3s;
+}
+.page-section::before{top:12px;left:12px;border-right:none;border-bottom:none;border-radius:4px 0 0 0}
+.page-section::after{bottom:12px;right:12px;border-left:none;border-top:none;border-radius:0 0 4px 0}
+.page-section.on::before,.page-section.on::after{border-color:rgba(212,148,58,.5)}
+
+/* ═══════════════════════════════════════════════════════
+   顶部导航栏 — 清晰游戏化风格
+   ═══════════════════════════════════════════════════════ */
+#topbar{
+  height:72px;padding:0 32px;
+  background:linear-gradient(90deg,rgba(10,8,0,.95) 0%,rgba(20,14,5,.95) 50%,rgba(10,8,0,.95) 100%);
+  backdrop-filter:blur(12px);
+  border-bottom:2px solid rgba(232,160,32,.35);
+  box-shadow:0 4px 30px rgba(0,0,0,.5),0 0 30px rgba(232,160,32,.08),inset 0 1px 0 rgba(255,255,255,.05);
+}
+#topbar::after{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--sun),var(--palm-l),var(--sea-l),var(--dusk-l),transparent);
+  opacity:.6;
+}
+.logo-mark{
+  width:44px;height:44px;border-radius:14px;font-size:22px;
+  box-shadow:0 0 15px rgba(232,160,32,.3),inset 0 1px 0 rgba(255,255,255,.15);
+}
+.logo-name{font-size:22px;font-weight:900;letter-spacing:.08em}
+.logo-sub{font-size:13px;padding:4px 14px;border-radius:24px;border:1px solid var(--sun)}
+nav{gap:8px}
+.npill{
+  padding:10px 22px;border-radius:28px;font-size:16px;font-weight:600;
+  color:rgba(250,240,208,.55);border:1.5px solid transparent;
+  background:rgba(255,255,255,.03);
+}
+.npill:hover{
+  color:var(--cream);background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);
+  transform:translateY(-1px);
+}
+.npill.on{
+  background:linear-gradient(135deg,rgba(232,160,32,.25),rgba(232,160,32,.1));border-color:var(--sun);
+  color:var(--sun-f);font-weight:700;font-size:16px;
+  box-shadow:0 0 20px rgba(232,160,32,.25),inset 0 1px 0 rgba(255,255,255,.15);
+  animation:navGlow 2s ease-in-out infinite;
+}
+#xp-bar{width:140px;height:10px;border:1px solid rgba(255,255,255,.1)}
+#xp-num{font-size:14px;min-width:90px}
+.av-btn{width:44px;height:44px;font-size:16px;border:2px solid var(--sun)}
+
+/* ═══════════════════════════════════════════════════════
+   侧边栏 — 清晰饱满风格
+   ═══════════════════════════════════════════════════════ */
+#sidebar{
+  width:260px;padding:20px 16px;
+  background:linear-gradient(180deg,rgba(10,8,0,.98) 0%,rgba(15,10,2,.98) 100%);
+  border-right:2px solid rgba(212,148,58,.2);
+  box-shadow:4px 0 30px rgba(0,0,0,.3);
+}
+.s-sec{font-size:13px;letter-spacing:.12em;padding:14px 16px 8px;font-weight:700}
+.s-item{
+  padding:14px 16px;border-radius:16px;font-size:16px;gap:12px;margin-bottom:6px;
+  border:1.5px solid transparent;
+}
+.s-item:hover{background:rgba(212,148,58,.1);border-color:rgba(212,148,58,.2);color:var(--cream);transform:translateX(4px)}
+.s-item.active{
+  background:linear-gradient(135deg,rgba(232,160,32,.2),rgba(232,160,32,.05));border-color:var(--sun);
+  color:var(--sun-f);font-weight:700;font-size:16px;
+  box-shadow:0 0 15px rgba(232,160,32,.15),inset 0 1px 0 rgba(255,255,255,.1);
+}
+.s-item .si-icon{font-size:22px;width:28px}
+.s-chip{font-size:13px;padding:5px 12px;border-radius:14px;font-weight:600}
+.s-div{height:1px;background:rgba(212,148,58,.15);margin:12px 16px}
+
+/* ═══════════════════════════════════════════════════════
+   内容区 — 饱满风格
+   ═══════════════════════════════════════════════════════ */
+.page-section{padding:32px}
+#content{background:radial-gradient(ellipse at 30% 20%,rgba(27,74,10,.03) 0%,transparent 50%),radial-gradient(ellipse at 70% 80%,rgba(140,48,96,.03) 0%,transparent 50%)}
+
+/* ═══════════════════════════════════════════════════════
+   Hero 区域放大
+   ═══════════════════════════════════════════════════════ */
+.hero{padding:44px 48px;margin-bottom:28px;border-radius:20px}
+.hero h1{font-size:36px;margin-bottom:14px}
+.hero p{font-size:18px;margin-bottom:28px}
+.hero-btn{padding:16px 32px;border-radius:16px;font-size:16px}
+
+/* ═══════════════════════════════════════════════════════
+   快捷卡片放大
+   ═══════════════════════════════════════════════════════ */
+.qgrid{gap:16px;margin-bottom:28px}
+.qcard{padding:24px;border-radius:20px}
+.qcard .qc-icon{width:52px;height:52px;border-radius:16px;font-size:26px;margin-bottom:14px}
+.qcard h3{font-size:18px;margin-bottom:6px}
+.qcard p{font-size:14px}
+
+/* ═══════════════════════════════════════════════════════
+   卡片系统 — 饱满发光风格
+   ═══════════════════════════════════════════════════════ */
+.card{
+  padding:28px;margin-bottom:24px;border-radius:20px;border:2px solid rgba(212,148,58,.15);
+  background:linear-gradient(135deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
+  box-shadow:0 4px 20px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.06);
+}
+.card::before{height:4px}
+.card-hd{margin-bottom:20px}
+.card-title{font-size:20px;gap:10px}
+.card-title .ct-icon{font-size:24px}
+
+/* ═══════════════════════════════════════════════════════
+   标签放大
+   ═══════════════════════════════════════════════════════ */
+.tag{font-size:14px;padding:5px 14px;border-radius:24px}
+
+/* ═══════════════════════════════════════════════════════
+   按钮系统 — 粗壮游戏风格
+   ═══════════════════════════════════════════════════════ */
+.btn{font-size:16px;padding:12px 22px;border-radius:14px;gap:8px;font-weight:600}
+.btn-sm{padding:8px 16px;font-size:14px;border-radius:10px}
+.btn-sun{
+  box-shadow:0 4px 15px rgba(232,160,32,.3),inset 0 1px 0 rgba(255,255,255,.2);
+  text-shadow:0 1px 2px rgba(0,0,0,.2);border:2px solid var(--sun);
+}
+.btn-ghost{border:1.5px solid rgba(212,148,58,.4);font-weight:500}
+.btn-sea{border:2px solid var(--sea-l);font-weight:600}
+.btn-palm{border:2px solid var(--palm-l);font-weight:600}
+.btn-dusk{border:2px solid var(--dusk-l);font-weight:600}
+.btn-eve{border:2px solid var(--eve-l);font-weight:600}
+.btn-bloom{border:2px solid var(--bloom-l);font-weight:600}
+
+/* ═══════════════════════════════════════════════════════
+   进度条放大
+   ═══════════════════════════════════════════════════════ */
+.prog-bar{height:10px;border-radius:6px;border:1px solid rgba(255,255,255,.1);box-shadow:inset 0 2px 4px rgba(0,0,0,.3)}
+.prog-label{font-size:14px;margin-bottom:14px}
+
+/* ═══════════════════════════════════════════════════════
+   信息框放大
+   ═══════════════════════════════════════════════════════ */
+.info{padding:14px 18px;font-size:15px;border-radius:16px;margin-bottom:14px}
+.info .ii{font-size:20px}
+
+/* ═══════════════════════════════════════════════════════
+   聊天对话框放大
+   ═══════════════════════════════════════════════════════ */
+.chat-box{border-radius:20px;margin-bottom:18px}
+.chat-hd{padding:14px 18px}
+.chat-av{width:36px;height:36px;font-size:13px}
+.chat-name{font-size:15px}
+.chat-live{font-size:13px}
+.msgs{padding:18px;gap:12px;max-height:480px}
+.msg-ws,.msg-me{padding:14px 18px;font-size:15px;border-radius:18px}
+.qi{padding:9px 14px;border-radius:12px;font-size:14px}
+.qi .qn{width:22px;height:22px;font-size:12px}
+.chat-input-row{padding:14px 18px}
+.chat-input{padding:12px 18px;font-size:15px;border-radius:14px}
+.send-btn{padding:12px 22px;border-radius:14px;font-size:15px}
+
+/* ═══════════════════════════════════════════════════════
+   图像画廊放大
+   ═══════════════════════════════════════════════════════ */
+.img-grid{gap:14px}
+.img-t{border-radius:16px;border-width:2px}
+
+/* ═══════════════════════════════════════════════════════
+   项目卡片放大
+   ═══════════════════════════════════════════════════════ */
+.proj-card{padding:20px;border-radius:20px;border-width:1.5px}
+.proj-card h4{font-size:16px}
+.proj-card p{font-size:13px}
+
+/* ═══════════════════════════════════════════════════════
+   风格卡片放大
+   ═══════════════════════════════════════════════════════ */
+.style-card{padding:16px;border-radius:16px}
+.style-preview{width:56px;height:56px;border-radius:16px;font-size:28px}
+
+/* ═══════════════════════════════════════════════════════
+   PPT预览放大
+   ═══════════════════════════════════════════════════════ */
+.ppt-prev{border-radius:16px;border-width:2px}
+
+/* ═══════════════════════════════════════════════════════
+   展板预览放大
+   ═══════════════════════════════════════════════════════ */
+.board-prev{border-radius:16px;border-width:2px}
+
+/* ═══════════════════════════════════════════════════════
+   订阅卡片放大
+   ═══════════════════════════════════════════════════════ */
+.sub-card{padding:28px;border-radius:20px}
+.sub-name{font-size:16px}
+.sub-price{font-size:36px}
+.sub-price span{font-size:16px}
+.sub-list li{font-size:15px;padding:8px 0}
+
+/* ═══════════════════════════════════════════════════════
+   游戏化顶部状态栏放大
+   ═══════════════════════════════════════════════════════ */
+#img-game-header,#ppt-game-header{padding:16px 20px;margin-bottom:20px;border-radius:16px;border-width:2px}
+#img-game-header > div:first-child > div:first-child,#ppt-game-header > div:first-child > div:first-child{width:44px;height:44px;font-size:22px}
+#img-game-header > div:first-child > div:nth-child(2) > div:first-child,#ppt-game-header > div:first-child > div:nth-child(2) > div:first-child{font-size:15px}
+#img-master-guide,#ppt-master-guide{font-size:13px}
+#img-xp-text,#ppt-xp-text{font-size:14px}
+#img-xp-bar,#ppt-xp-bar{height:8px}
+
+/* ═══════════════════════════════════════════════════════
+   游戏化工作流容器
+   ═══════════════════════════════════════════════════════ */
+#game-workflow-container .game-card{padding:32px;border-radius:20px;border-width:2.5px}
+#game-workflow-container .game-card > div:first-child{font-size:64px}
+#game-workflow-container .game-card > div:nth-child(2){font-size:20px}
+#game-workflow-container .game-card > div:nth-child(3){font-size:15px}
+
+/* ═══════════════════════════════════════════════════════
+   游戏化关卡卡片
+   ═══════════════════════════════════════════════════════ */
+.atmosphere-card{padding:20px;border-radius:16px;border-width:2.5px}
+.atmosphere-card > div:first-child{font-size:40px}
+.atmosphere-card > div:nth-child(2){font-size:16px}
+.atmosphere-card > div:nth-child(3){font-size:13px}
+
+/* ═══════════════════════════════════════════════════════
+   游戏化弹窗
+   ═══════════════════════════════════════════════════════ */
+#work-detail-modal > div,#checkpoint-modal > div,#levelmap-modal > div{padding:28px;border-radius:20px;border-width:2px}
+#work-detail-modal > div > div:first-child,#checkpoint-modal > div > div:first-child,#levelmap-modal > div > div:first-child{font-size:20px}
+
+/* ═══════════════════════════════════════════════════════
+   语音按钮
+   ═══════════════════════════════════════════════════════ */
+.voice-btn{width:40px;height:40px;font-size:18px}
+
+/* ═══════════════════════════════════════════════════════
+   全局输入框放大
+   ═══════════════════════════════════════════════════════ */
+input,textarea,select{font-size:15px;padding:10px 14px;border-radius:12px}
+input:focus,textarea:focus,select:focus{box-shadow:0 0 0 4px rgba(232,160,32,.15),0 0 20px rgba(232,160,32,.1)}
+
+/* ═══════════════════════════════════════════════════════
+   select 放大
+   ═══════════════════════════════════════════════════════ */
+select{font-size:15px;padding:10px 14px}
+
+/* ═══════════════════════════════════════════════════════
+   空状态放大
+   ═══════════════════════════════════════════════════════ */
+.empty-state .es-icon{font-size:48px}
+.empty-state p{font-size:16px}
+
+/* ═══════════════════════════════════════════════════════
+   响应式
+   ═══════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .qgrid{grid-template-columns:repeat(2,1fr)!important}
+  #sidebar{width:200px}
+  .page-section{padding:16px}
+}

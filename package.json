@@ -1,0 +1,9 @@
+{
+  "name": "wushi-design-assistant",
+  "version": "1.0.0",
+  "description": "伍师浅谈设计助手 - AI景观设计工作流平台",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {}
+}

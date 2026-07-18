@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "name": "wushi-design-assistant",
+  "builds": [
+    {
+      "src": "api/index.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/伍师浅谈设计助手.html"
+    }
+  ]
+}
