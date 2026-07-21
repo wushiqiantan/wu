@@ -7,7 +7,8 @@ const https = require('https');
 const http = require('http');
 
 // ============ 从环境变量读取配置 ============
-const API_SECRET = process.env.API_SECRET || 'wushi-default-secret';
+// 与前端 api-config.js 中的 apiSecret 保持一致
+const API_SECRET = process.env.API_SECRET || '65ba25906dd2192d4586b44a0d0070345a461449606d1f549179c4056b8a73c5';
 
 const AI_SERVICES = {
     deepseek: {
