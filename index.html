@@ -1380,6 +1380,31 @@ const API_CONFIG = {
 };
 
 /**
+ * 匿名设备ID + 订阅码管理（本地存储）
+ * clientId：用于统计"每设备每日免费次数"，首次访问时生成，非敏感信息
+ * licenseCode：付费订阅成功后由后端签发，凭它可跳过免费次数限制
+ */
+const SubscriptionStore = {
+    getClientId() {
+        let id = localStorage.getItem('wushi_client_id');
+        if (!id) {
+            id = 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+            localStorage.setItem('wushi_client_id', id);
+        }
+        return id;
+    },
+    getLicenseCode() {
+        return localStorage.getItem('wushi_license_code') || '';
+    },
+    setLicenseCode(code) {
+        if (code) localStorage.setItem('wushi_license_code', code);
+    },
+    clearLicenseCode() {
+        localStorage.removeItem('wushi_license_code');
+    }
+};
+
+/**
  * 通用后端代理调用（文本AI）
  * @param {string} service - 'deepseek' | 'kimi'
  * @param {Array} messages - 对话消息数组
@@ -1387,18 +1412,25 @@ const API_CONFIG = {
  */
 async function callAI(service, messages, options = {}) {
     const backend = API_CONFIG.backend;
-    
+
     const response = await fetch(`${backend.baseURL}/api/ai/chat`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${backend.apiSecret}`
         },
-        body: JSON.stringify({ service, messages, options })
+        body: JSON.stringify({
+            service, messages, options,
+            licenseCode: SubscriptionStore.getLicenseCode() || undefined,
+            clientId: SubscriptionStore.getClientId()
+        })
     });
 
     if (!response.ok) {
         const error = await response.json();
+        if (response.status === 402 && error.code === 'SUBSCRIPTION_REQUIRED') {
+            if (typeof subscribeUI !== 'undefined') subscribeUI.open();
+        }
         throw new Error(`API错误 (${response.status}): ${error.error || error.message}`);
     }
 
@@ -1415,18 +1447,25 @@ async function callAI(service, messages, options = {}) {
  */
 async function callImageAPI(prompt, n = 1, size = '1024x1024', quality = 'medium') {
     const backend = API_CONFIG.backend;
-    
+
     const response = await fetch(`${backend.baseURL}/api/ai/image`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${backend.apiSecret}`
         },
-        body: JSON.stringify({ prompt, n, size, quality })
+        body: JSON.stringify({
+            prompt, n, size, quality,
+            licenseCode: SubscriptionStore.getLicenseCode() || undefined,
+            clientId: SubscriptionStore.getClientId()
+        })
     });
 
     if (!response.ok) {
         const error = await response.json();
+        if (response.status === 402 && error.code === 'SUBSCRIPTION_REQUIRED') {
+            if (typeof subscribeUI !== 'undefined') subscribeUI.open();
+        }
         throw new Error(`图像生成失败 (${response.status}): ${error.error || error.message}`);
     }
 
@@ -1479,8 +1518,106 @@ async function getUsageStats() {
     }
 }
 
+/**
+ * 订阅弹窗（微信 Native 扫码支付）
+ * 二维码通过公共QR生成服务(api.qrserver.com)渲染 code_url，
+ * code_url本身不含密钥/个人信息，只是一个微信支付跳转链接，
+ * 如果你不希望依赖第三方图片服务，可以自行换成本地JS二维码库生成。
+ */
+const subscribeUI = {
+    pollTimer: null,
+    currentOutTradeNo: null,
+
+    open() {
+        if (document.getElementById('subscribe-modal')) {
+            document.getElementById('subscribe-modal').style.display = 'flex';
+            return;
+        }
+        const modal = document.createElement('div');
+        modal.id = 'subscribe-modal';
+        modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)';
+        modal.innerHTML = `
+            <div style="background:#1A1000;border:1px solid rgba(212,148,58,.3);border-radius:16px;padding:28px;max-width:340px;width:90%;text-align:center;position:relative">
+                <button onclick="subscribeUI.close()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:rgba(250,240,208,.4);font-size:20px;cursor:pointer">×</button>
+                <div style="font-size:16px;font-weight:700;color:#F5C860;margin-bottom:4px">解锁伍师助手会员</div>
+                <div id="sub-body">
+                    <div style="font-size:13px;color:rgba(250,240,208,.5);margin:12px 0">免费次数已用完，订阅后可无限使用全部AI生成功能</div>
+                    <button onclick="subscribeUI.startOrder()" class="btn btn-sun" style="width:100%;margin-top:8px">💰 微信扫码订阅 ¥39/月</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    },
+
+    close() {
+        const modal = document.getElementById('subscribe-modal');
+        if (modal) modal.style.display = 'none';
+        if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = null; }
+    },
+
+    async startOrder() {
+        const body = document.getElementById('sub-body');
+        body.innerHTML = `<div style="padding:24px 0;color:rgba(250,240,208,.5);font-size:13px">正在生成订单...</div>`;
+        try {
+            const res = await fetch(`${API_CONFIG.backend.baseURL}/api/subscribe/create-order`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plan: 'monthly' })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || '创建订单失败');
+            this.currentOutTradeNo = data.outTradeNo;
+            const qrImgSrc = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(data.codeUrl)}`;
+            body.innerHTML = `
+                <div style="font-size:13px;color:rgba(250,240,208,.6);margin-bottom:12px">请使用微信扫描二维码支付 ¥${(data.amount / 100).toFixed(2)}</div>
+                <img src="${qrImgSrc}" style="width:200px;height:200px;border-radius:8px;background:#fff;padding:8px" alt="微信支付二维码">
+                <div id="sub-status" style="font-size:12px;color:rgba(250,240,208,.4);margin-top:12px">等待支付中...</div>
+            `;
+            this.pollStatus();
+        } catch (e) {
+            body.innerHTML = `<div style="color:#E87844;font-size:13px;padding:16px 0">生成订单失败：${e.message}</div>
+                <button onclick="subscribeUI.startOrder()" class="btn btn-ghost btn-sm" style="margin-top:8px">重试</button>`;
+        }
+    },
+
+    async pollStatus() {
+        if (this.pollTimer) clearInterval(this.pollTimer);
+        this.pollTimer = setInterval(async () => {
+            try {
+                const res = await fetch(`${API_CONFIG.backend.baseURL}/api/subscribe/order-status?out_trade_no=${this.currentOutTradeNo}`);
+                const data = await res.json();
+                const statusEl = document.getElementById('sub-status');
+                if (data.status === 'paid') {
+                    clearInterval(this.pollTimer);
+                    this.pollTimer = null;
+                    SubscriptionStore.setLicenseCode(data.licenseCode);
+                    const body = document.getElementById('sub-body');
+                    if (body) {
+                        const expireDate = new Date(data.expiresAt).toLocaleDateString('zh-CN');
+                        body.innerHTML = `
+                            <div style="font-size:32px;margin:12px 0">✅</div>
+                            <div style="color:#F5C860;font-weight:700;margin-bottom:4px">订阅成功！</div>
+                            <div style="font-size:12px;color:rgba(250,240,208,.5);margin-bottom:16px">有效期至 ${expireDate}</div>
+                            <button onclick="subscribeUI.close()" class="btn btn-sun" style="width:100%">开始使用</button>
+                        `;
+                    }
+                } else if (data.status === 'closed') {
+                    clearInterval(this.pollTimer);
+                    this.pollTimer = null;
+                    if (statusEl) statusEl.textContent = '订单已关闭，请重新发起';
+                } else if (statusEl) {
+                    statusEl.textContent = '等待支付中...（页面会自动确认，无需刷新）';
+                }
+            } catch (e) {
+                // 网络抖动，静默重试，不打断用户扫码
+            }
+        }, 2500);
+    }
+};
+
 </script>
 <script>
+
 /* js/ai-guide.js */
 /**
  * AI Reverse Questioning Guide Engine
@@ -2854,6 +2991,74 @@ const gameWorkflow = {
     ],
 
     // ═══════════════════════════════════════════════════════
+    // 氛围风格文案（用于拼接AI生成提示词）
+    // ═══════════════════════════════════════════════════════
+    atmosphereLabels: {
+        classical_garden: '古典园林风格，白墙黛瓦，叠山理水，漏窗借景',
+        zen_karesansui: '日式枯山水风格，白砂耙纹，置石苔藓，禅意静谧',
+        new_chinese: '新中式风格，传统元素现代表达，留白写意，水墨意境',
+        lingnan_garden: '岭南园林风格，通透开敞，灰塑彩陶，热带植物',
+        japanese_natural: '日式自然风，杂木庭院，苔藓地被，四季分明',
+        modern_minimal: '现代极简风格，几何线条，大面积铺装，雕塑感植物',
+        eco_naturalism: '生态自然主义风格，草甸花海，雨水花园，乡土植物',
+        parametric_tech: '参数化/科技感风格，曲线造型，智能灯光，未来感',
+        industrial: '工业风，锈蚀钢板，混凝土，野花组合',
+        art_installation: '艺术装置风，大地艺术，色彩碰撞，概念性强',
+        english_landscape: '英式自然风景园，疏林草地，蜿蜒小径，花境层次',
+        french_formal: '法式规整园林，轴线对称，修剪绿篱，喷泉雕塑',
+        mediterranean: '地中海风情，蓝白陶瓦，耐旱植物，陶罐铺装',
+        american_estate: '美式庄园风格，大草坪，乔木遮阴，休闲舒适',
+        german_functional: '德式功能主义，严谨分区，理性铺装，功能优先',
+        flower_border: '花境花园风格，多年生草本，四季轮替，色彩盛宴',
+        tropical_rainforest: '热带雨林风，棕榈芭蕉，喷雾溪谷，浓绿繁盛',
+        desert_xeriscape: '荒漠旱生风，仙人掌，砾石铺地，耐旱景观',
+        wetland_aquatic: '湿地水生风，芦苇荷花，木栈道，生态驳岸',
+        night_lighting: '夜景灯光风，灯光雕塑，氛围照明，夜游体验'
+    },
+
+    // ═══════════════════════════════════════════════════════
+    // AI 生成通用工具（对接后端 /api/ai/chat 与 /api/ai/image）
+    // ═══════════════════════════════════════════════════════
+    getStyleContext() {
+        const project = (typeof app !== 'undefined' && app.currentProject) ? app.currentProject : {};
+        const atmosphereId = this.levelResults['atmosphere']?.atmosphere;
+        let atmosphereText = '';
+        if (atmosphereId) {
+            atmosphereText = this.atmosphereLabels[atmosphereId] || `自定义氛围：${atmosphereId}`;
+        }
+        return {
+            projectType: project.typeLabel || (this.gameMode === 'new' ? '景观设计项目' : '景观改造项目'),
+            atmosphereText
+        };
+    },
+
+    // 调用图像生成API，统一处理错误与"未配置/失败→占位图"的提示
+    async aiImage(prompt, { size = '1024x1024', quality = 'medium' } = {}) {
+        try {
+            const images = await callImageAPI(prompt, 1, size, quality);
+            if (!images || !images.length) throw new Error('未返回图像结果');
+            const url = images[0].url;
+            if (typeof url === 'string' && url.startsWith('data:image/svg+xml')) {
+                this.toast('⚠️ AI图像服务暂未配置或调用失败，已显示占位图');
+            }
+            return url;
+        } catch (e) {
+            this.toast('❌ 图像生成失败：' + e.message);
+            throw e;
+        }
+    },
+
+    // 调用文本生成API（DeepSeek/Kimi），统一处理错误
+    async aiText(messages, service = 'deepseek') {
+        try {
+            return await callAI(service, messages);
+        } catch (e) {
+            this.toast('❌ AI文本生成失败：' + e.message);
+            throw e;
+        }
+    },
+
+    // ═══════════════════════════════════════════════════════
     // 初始化
     // ═══════════════════════════════════════════════════════
     init() {
@@ -3399,20 +3604,20 @@ const gameWorkflow = {
     async generateColorplan() {
         this.isLoading = true;
         this.render();
-        // 模拟AI生成，实际会调用后端API
-        await new Promise(r => setTimeout(r, 2000));
-        const mockImages = [
-            'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=800&q=80',
-            'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&q=80',
-            'https://images.unsplash.com/photo-1598902108854-10e335adac99?w=800&q=80'
-        ];
-        const randomImg = mockImages[Math.floor(Math.random() * mockImages.length)];
-        if (!this.levelResults['colorplan']) this.levelResults['colorplan'] = {};
-        this.levelResults['colorplan'].colorplanImage = randomImg;
-        this.isLoading = false;
-        this.saveState();
-        this.render();
-        this.toast('彩色平面图生成完成！');
+        const { projectType, atmosphereText } = this.getStyleContext();
+        const prompt = `专业景观设计彩色平面图，俯视总平面（top-down colored landscape master plan），项目类型：${projectType}${atmosphereText ? '，整体氛围：' + atmosphereText : ''}。要求：清晰区分道路铺装、水体、绿化种植区、建筑/构筑物功能分区，色彩清新明快，图纸质感，适合方案汇报使用。`;
+        try {
+            const url = await this.aiImage(prompt, { size: '1024x1024', quality: 'medium' });
+            if (!this.levelResults['colorplan']) this.levelResults['colorplan'] = {};
+            this.levelResults['colorplan'].colorplanImage = url;
+            this.toast('彩色平面图生成完成！');
+        } catch (e) {
+            // aiImage 已经toast了错误信息
+        } finally {
+            this.isLoading = false;
+            this.saveState();
+            this.render();
+        }
     },
 
     // ─────────────────────────────────────────────────────
@@ -3468,18 +3673,22 @@ const gameWorkflow = {
     async generateCad() {
         this.isLoading = true;
         this.render();
-        await new Promise(r => setTimeout(r, 2000));
-        const mockImages = [
-            'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800&q=80',
-            'https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800&q=80'
-        ];
-        const randomImg = mockImages[Math.floor(Math.random() * mockImages.length)];
-        if (!this.levelResults['cad']) this.levelResults['cad'] = {};
-        this.levelResults['cad'].cadImage = randomImg;
-        this.isLoading = false;
-        this.saveState();
-        this.render();
-        this.toast('CAD图纸生成完成！');
+        const scale = document.getElementById('cad-scale')?.value || '1:100';
+        const unit = document.getElementById('cad-unit')?.value || 'mm';
+        const { atmosphereText } = this.getStyleContext();
+        const prompt = `景观设计CAD线稿图纸，黑白技术制图风格（black and white CAD technical line drawing），比例${scale}，标注单位${unit}。要求：包含精确尺寸标注、坐标网格、图层区分、专业制图规范，构筑物与种植区边界清晰${atmosphereText ? '，整体风格参考：' + atmosphereText : ''}。`;
+        try {
+            const url = await this.aiImage(prompt, { size: '1024x1024', quality: 'medium' });
+            if (!this.levelResults['cad']) this.levelResults['cad'] = {};
+            this.levelResults['cad'].cadImage = url;
+            this.toast('CAD图纸生成完成！');
+        } catch (e) {
+            // 已在 aiImage 内提示
+        } finally {
+            this.isLoading = false;
+            this.saveState();
+            this.render();
+        }
     },
 
     // ─────────────────────────────────────────────────────
@@ -3530,18 +3739,22 @@ const gameWorkflow = {
     async generateSumodel() {
         this.isLoading = true;
         this.render();
-        await new Promise(r => setTimeout(r, 2500));
-        const mockImages = [
-            'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80',
-            'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80'
-        ];
-        const randomImg = mockImages[Math.floor(Math.random() * mockImages.length)];
-        if (!this.levelResults['sumodel']) this.levelResults['sumodel'] = {};
-        this.levelResults['sumodel'].sumodelImage = randomImg;
-        this.isLoading = false;
-        this.saveState();
-        this.render();
-        this.toast('SU模型生成完成！');
+        const detail = document.getElementById('su-detail')?.value || 'medium';
+        const detailLabel = { block: '体块模型，简单几何体块，无材质', medium: '中等细节，含基础材质与主要构筑物', high: '高细节，精细建模与材质贴图' }[detail] || detail;
+        const { atmosphereText } = this.getStyleContext();
+        const prompt = `SketchUp风格景观三维模型效果图（3D massing model render），细节程度：${detailLabel}。展示整体体块关系、空间尺度层次、地形起伏与植物高度层次${atmosphereText ? '，整体风格：' + atmosphereText : ''}。`;
+        try {
+            const url = await this.aiImage(prompt, { size: '1024x1024', quality: 'medium' });
+            if (!this.levelResults['sumodel']) this.levelResults['sumodel'] = {};
+            this.levelResults['sumodel'].sumodelImage = url;
+            this.toast('SU模型生成完成！');
+        } catch (e) {
+            // 已在 aiImage 内提示
+        } finally {
+            this.isLoading = false;
+            this.saveState();
+            this.render();
+        }
     },
 
     // ─────────────────────────────────────────────────────
@@ -3599,18 +3812,24 @@ const gameWorkflow = {
     async generateViewpoint() {
         this.isLoading = true;
         this.render();
-        await new Promise(r => setTimeout(r, 2000));
-        const mockImages = [
-            'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&q=80',
-            'https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?w=800&q=80'
-        ];
-        const randomImg = mockImages[Math.floor(Math.random() * mockImages.length)];
-        if (!this.levelResults['viewpoint']) this.levelResults['viewpoint'] = {};
-        this.levelResults['viewpoint'].viewpointImage = randomImg;
-        this.isLoading = false;
-        this.saveState();
-        this.render();
-        this.toast('固定视角截图完成！');
+        const angle = document.getElementById('vp-angle')?.value || 'human';
+        const time = document.getElementById('vp-time')?.value || 'noon';
+        const angleLabel = { birdseye: '鸟瞰视角', human: '人视视角（1.6米高度）', low: '低角度仰视', aerial: '45度半鸟瞰视角' }[angle] || angle;
+        const timeLabel = { morning: '清晨柔和光线，微雾', noon: '正午强光，高对比度阴影', afternoon: '下午暖光，长阴影', golden: '黄金时刻暖橙色光线，戏剧性光影' }[time] || time;
+        const { atmosphereText } = this.getStyleContext();
+        const prompt = `景观设计固定视角效果图（architectural landscape rendering），视角：${angleLabel}，光线氛围：${timeLabel}${atmosphereText ? '，整体风格：' + atmosphereText : ''}。超写实渲染质感，构图专业，将作为后续所有效果图的统一视角基准。`;
+        try {
+            const url = await this.aiImage(prompt, { size: '1024x1024', quality: 'medium' });
+            if (!this.levelResults['viewpoint']) this.levelResults['viewpoint'] = {};
+            this.levelResults['viewpoint'].viewpointImage = url;
+            this.toast('固定视角截图生成完成！');
+        } catch (e) {
+            // 已在 aiImage 内提示
+        } finally {
+            this.isLoading = false;
+            this.saveState();
+            this.render();
+        }
     },
 
     // ─────────────────────────────────────────────────────
@@ -3669,19 +3888,33 @@ const gameWorkflow = {
     async generateRender() {
         this.isLoading = true;
         this.render();
-        await new Promise(r => setTimeout(r, 3000));
-        const mockImages = [
-            'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=600&q=80',
-            'https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=600&q=80',
-            'https://images.unsplash.com/photo-1600573472550-8090b5e0745e?w=600&q=80',
-            'https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=600&q=80'
+        const { atmosphereText } = this.getStyleContext();
+        const angle = document.getElementById('vp-angle')?.value || 'human';
+        const time = document.getElementById('vp-time')?.value || 'noon';
+        const angleLabel = { birdseye: '鸟瞰视角', human: '人视视角', low: '低角度仰视', aerial: '45度半鸟瞰视角' }[angle] || angle;
+        const timeLabel = { morning: '清晨柔和光线', noon: '正午强光', afternoon: '下午暖光', golden: '黄金时刻暖橙色光线' }[time] || time;
+        const shots = [
+            `整体${angleLabel}效果图，${timeLabel}，展示全局空间关系`,
+            `核心节点特写效果图，人视角沉浸式体验，突出材质与植物细节`,
+            `另一角度补充效果图，与前两张色调光影保持统一`
         ];
-        if (!this.levelResults['render']) this.levelResults['render'] = {};
-        this.levelResults['render'].renderImages = mockImages.slice(0, 3);
-        this.isLoading = false;
-        this.saveState();
-        this.render();
-        this.toast('效果图生成完成！');
+        try {
+            const images = [];
+            for (const shot of shots) {
+                const prompt = `景观设计效果图（photorealistic landscape rendering），${shot}${atmosphereText ? '，整体风格：' + atmosphereText : ''}。色调、光影、植物风格需与同一项目的其他效果图保持一致。`;
+                const url = await this.aiImage(prompt, { size: '1024x1024', quality: 'medium' });
+                images.push(url);
+            }
+            if (!this.levelResults['render']) this.levelResults['render'] = {};
+            this.levelResults['render'].renderImages = images;
+            this.toast('效果图生成完成！');
+        } catch (e) {
+            // 已在 aiImage 内提示；仅保留已成功生成的部分
+        } finally {
+            this.isLoading = false;
+            this.saveState();
+            this.render();
+        }
     },
 
     // ─────────────────────────────────────────────────────
@@ -3782,27 +4015,41 @@ const gameWorkflow = {
 
     async generateNarrativeByAI() {
         this.toast('🤖 伍师正在帮你构思叙事...');
-        await new Promise(r => setTimeout(r, 1500));
-        const project = app.currentProject || { typeLabel: '别墅庭院设计' };
+        const project = (typeof app !== 'undefined' && app.currentProject) ? app.currentProject : { typeLabel: '景观设计项目' };
         const isNew = this.gameMode === 'new';
-        const aiStory = isNew
-            ? `这片土地曾经是一片沉寂的角落，直到我们决定赋予它新的生命。设计以"归隐"为核心，一方静水倒映天光云影，几块老山石诉说着岁月的故事。它不是被设计的，而是被发现的——原本就存在于这片土地上的诗意，我们只是轻轻拂去了尘埃。`
-            : `这里曾是老厂区最热闹的角落，工人们下班后在这条路上走了三十年。改造没有抹去这些记忆，而是把它们变成了景观的底色——保留的老梧桐成了"记忆树阵"，原来的红砖墙变成了花境的背景，连地面上的裂缝都被设计成雨水花园的脉络。旧场地没有消失，它只是换了一种方式继续活着。`;
-        const aiConcept = `以"${isNew ? '自然生长' : '记忆延续'}"为设计主线，通过空间层次的递进营造情绪节奏。核心策略：保留（Retain）— 转化（Transform）— 生长（Grow）。`;
-        const aiExperience = `入口以密植形成"城市屏风"，隔绝喧嚣；转折处以一株造型松点亮视线，制造"意外之喜"；核心水景区采用"无边际"处理，让水面与天空融为一体，人在此处自然放慢脚步。`;
-        const aiFuture = `第一年，骨架植物确立空间结构；第三年，中层植物丰满，季相变化显现；第五年，地被自然蔓延，景观进入"自我演化"阶段。这个设计不是终点，而是一个会自己长大的花园。`;
-
-        if (!this.levelResults['narrative']) this.levelResults['narrative'] = {};
-        this.levelResults['narrative'].narrative = {
-            story: aiStory,
-            concept: aiConcept,
-            experience: aiExperience,
-            future: aiFuture,
-            aiGenerated: true
-        };
-        this.saveState();
-        this.render();
-        this.toast('✨ AI叙事生成完成！你可以在此基础上修改。');
+        const { atmosphereText } = this.getStyleContext();
+        const userPrompt = `请为一个「${project.typeLabel || '景观设计'}」${isNew ? '新建' : '改造'}项目撰写景观设计叙事，${atmosphereText ? '整体氛围风格：' + atmosphereText + '。' : ''}
+${isNew ? '这是一个全新建造的项目。' : '这是一个旧场地改造项目，请突出"旧记忆保留、新生命注入"的情感转变。'}
+请严格按以下JSON格式输出，不要输出任何JSON以外的文字：
+{"story": "场地故事，100-150字，讲述这片场地的前世今生", "concept": "设计理念，60-100字，核心设计策略", "experience": "空间体验，80-120字，人在其中如何感受", "future": "未来愿景，80-120字，三年/五年/十年后的变化"}`;
+        try {
+            const raw = await this.aiText([
+                { role: 'system', content: '你是资深景观设计师"伍师"，擅长用富有画面感、打动人心的文字撰写景观设计叙事。只输出JSON，不要有多余说明。' },
+                { role: 'user', content: userPrompt }
+            ]);
+            let parsed;
+            try {
+                const jsonMatch = raw.match(/\{[\s\S]*\}/);
+                parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
+            } catch (parseErr) {
+                throw new Error('AI返回内容解析失败，请重试');
+            }
+            if (!this.levelResults['narrative']) this.levelResults['narrative'] = {};
+            this.levelResults['narrative'].narrative = {
+                story: parsed.story || '',
+                concept: parsed.concept || '',
+                experience: parsed.experience || '',
+                future: parsed.future || '',
+                aiGenerated: true
+            };
+            this.saveState();
+            this.toast('✨ AI叙事生成完成！你可以在此基础上修改。');
+        } catch (e) {
+            // 已在 aiText 内提示错误；解析失败的情况在这里额外提示一次
+            if (e.message && e.message.includes('解析失败')) this.toast('❌ ' + e.message);
+        } finally {
+            this.render();
+        }
     },
 
     // ─────────────────────────────────────────────────────
@@ -3923,30 +4170,57 @@ const gameWorkflow = {
     },
 
     async generatePPTInGame() {
-        this.toast('📐 Kimi正在生成PPT...');
+        this.toast('📐 AI正在生成PPT大纲...');
         this.isLoading = true;
         this.render();
-        await new Promise(r => setTimeout(r, 2500));
-        if (!this.levelResults['pptboard']) this.levelResults['pptboard'] = {};
-        this.levelResults['pptboard'].pptSlides = new Array(12).fill(null).map((_, i) => ({ page: i + 1 }));
-        this.isLoading = false;
-        this.saveState();
-        this.render();
-        this.toast('PPT生成完成！12页汇报文稿');
+        const { projectType, atmosphereText } = this.getStyleContext();
+        const narrative = this.levelResults['narrative']?.narrative;
+        const userPrompt = `请为「${projectType}」景观设计项目生成一份12页的汇报PPT大纲。${atmosphereText ? '整体风格：' + atmosphereText + '。' : ''}
+${narrative ? '设计叙事参考：' + [narrative.story, narrative.concept, narrative.experience, narrative.future].filter(Boolean).join(' ') : ''}
+请严格输出JSON数组，不要输出JSON以外的文字，每个元素格式：{"title": "页面标题", "bullets": ["要点1", "要点2", "要点3"]}，共12个元素，覆盖：封面、项目背景、场地分析、设计理念、总平面、分区设计（可2-3页）、效果图展示（可2-3页）、植物配置、施工要点、总结展望等汇报常见结构。`;
+        try {
+            const raw = await this.aiText([
+                { role: 'system', content: '你是资深景观设计汇报顾问，擅长搭建逻辑清晰、层层递进的方案汇报PPT大纲。只输出JSON数组，不要有多余说明。' },
+                { role: 'user', content: userPrompt }
+            ], 'kimi');
+            let slides;
+            try {
+                const jsonMatch = raw.match(/\[[\s\S]*\]/);
+                slides = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
+            } catch (parseErr) {
+                throw new Error('PPT大纲解析失败，请重试');
+            }
+            if (!this.levelResults['pptboard']) this.levelResults['pptboard'] = {};
+            this.levelResults['pptboard'].pptSlides = slides.map((s, i) => ({ page: i + 1, title: s.title || `第${i + 1}页`, bullets: s.bullets || [] }));
+            this.toast(`PPT生成完成！${slides.length}页汇报文稿`);
+        } catch (e) {
+            if (e.message && e.message.includes('解析失败')) this.toast('❌ ' + e.message);
+        } finally {
+            this.isLoading = false;
+            this.saveState();
+            this.render();
+        }
     },
 
     async generateBoardInGame() {
-        this.toast('🎯 GPT Image正在绘制A1展板...');
+        this.toast('🎯 AI正在绘制A1展板...');
         this.isLoading = true;
         this.render();
-        await new Promise(r => setTimeout(r, 3000));
-        const mockBoard = 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1200&q=80';
-        if (!this.levelResults['pptboard']) this.levelResults['pptboard'] = {};
-        this.levelResults['pptboard'].boardImage = mockBoard;
-        this.isLoading = false;
-        this.saveState();
-        this.render();
-        this.toast('A1展板生成完成！');
+        const { projectType, atmosphereText } = this.getStyleContext();
+        const narrative = this.levelResults['narrative']?.narrative;
+        const prompt = `景观设计A1汇报展板排版（landscape design A1 presentation board layout），项目：${projectType}${atmosphereText ? '，整体风格：' + atmosphereText : ''}。包含标题区、总平面图区、效果图区、设计说明文字区的完整版面布局，排版专业，视觉冲击力强，适合方案评审展示${narrative?.story ? '，主题：' + narrative.story.substring(0, 30) : ''}。`;
+        try {
+            const url = await this.aiImage(prompt, { size: '1536x1024', quality: 'high' });
+            if (!this.levelResults['pptboard']) this.levelResults['pptboard'] = {};
+            this.levelResults['pptboard'].boardImage = url;
+            this.toast('A1展板生成完成！');
+        } catch (e) {
+            // 已在 aiImage 内提示
+        } finally {
+            this.isLoading = false;
+            this.saveState();
+            this.render();
+        }
     },
 
     // ─────────────────────────────────────────────────────
@@ -4149,18 +4423,21 @@ const gameWorkflow = {
     async generateMasterplan() {
         this.isLoading = true;
         this.render();
-        await new Promise(r => setTimeout(r, 2500));
-        const mockImages = [
-            'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80',
-            'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&q=80'
-        ];
-        const randomImg = mockImages[Math.floor(Math.random() * mockImages.length)];
-        if (!this.levelResults['masterplan']) this.levelResults['masterplan'] = {};
-        this.levelResults['masterplan'].masterplanImage = randomImg;
-        this.isLoading = false;
-        this.saveState();
-        this.render();
-        this.toast('改造总图生成完成！');
+        const style = document.getElementById('mp-style')?.value || 'realistic';
+        const styleLabel = { realistic: '写实照片级渲染', sketch: '手绘风格', watercolor: '水彩渲染风格' }[style] || style;
+        const prompt = `景观改造后总图效果图（landscape renovation master rendering），${styleLabel}。展示改造后的整体空间布局、道路铺装、绿化种植、休憩节点，画面完整统一，作为整个改造项目后续所有图纸的风格基准。`;
+        try {
+            const url = await this.aiImage(prompt, { size: '1024x1024', quality: 'medium' });
+            if (!this.levelResults['masterplan']) this.levelResults['masterplan'] = {};
+            this.levelResults['masterplan'].masterplanImage = url;
+            this.toast('改造总图生成完成！');
+        } catch (e) {
+            // 已在 aiImage 内提示
+        } finally {
+            this.isLoading = false;
+            this.saveState();
+            this.render();
+        }
     },
 
     // 第3关：反推平面
@@ -4201,18 +4478,19 @@ const gameWorkflow = {
     async generateReverse() {
         this.isLoading = true;
         this.render();
-        await new Promise(r => setTimeout(r, 2000));
-        const mockImages = [
-            'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=800&q=80',
-            'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800&q=80'
-        ];
-        const randomImg = mockImages[Math.floor(Math.random() * mockImages.length)];
-        if (!this.levelResults['reverse']) this.levelResults['reverse'] = {};
-        this.levelResults['reverse'].reversePlan = randomImg;
-        this.isLoading = false;
-        this.saveState();
-        this.render();
-        this.toast('反推平面生成完成！');
+        const prompt = `景观改造平面布置图（landscape site plan, top-down），俯视角度。根据改造总图效果图反推的空间关系，清晰表达道路走向、功能分区、绿化范围与硬质铺装区域，图纸风格，色块区分明确。`;
+        try {
+            const url = await this.aiImage(prompt, { size: '1024x1024', quality: 'medium' });
+            if (!this.levelResults['reverse']) this.levelResults['reverse'] = {};
+            this.levelResults['reverse'].reversePlan = url;
+            this.toast('反推平面生成完成！');
+        } catch (e) {
+            // 已在 aiImage 内提示
+        } finally {
+            this.isLoading = false;
+            this.saveState();
+            this.render();
+        }
     },
 
     // 第4关：多视角效果
@@ -4268,19 +4546,26 @@ const gameWorkflow = {
     async generateMultiview() {
         this.isLoading = true;
         this.render();
-        await new Promise(r => setTimeout(r, 3000));
-        const mockImages = [
-            'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=600&q=80',
-            'https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=600&q=80',
-            'https://images.unsplash.com/photo-1600573472550-8090b5e0745e?w=600&q=80',
-            'https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=600&q=80'
-        ];
-        if (!this.levelResults['multiview']) this.levelResults['multiview'] = {};
-        this.levelResults['multiview'].multiviewImages = mockImages.slice(0, 3);
-        this.isLoading = false;
-        this.saveState();
-        this.render();
-        this.toast('多视角效果图生成完成！');
+        const count = parseInt(document.getElementById('mv-views')?.value || '3', 10);
+        const viewLabels = ['人视角度，沉浸式空间体验', '鸟瞰角度，展示整体布局', '核心节点特写，突出细节材质', '夜景灯光效果', '局部细节特写', '晨景柔和光线'];
+        try {
+            const images = [];
+            for (let i = 0; i < count; i++) {
+                const viewLabel = viewLabels[i] || `补充视角${i + 1}`;
+                const prompt = `景观改造多视角效果图（photorealistic landscape rendering），${viewLabel}。与项目总图色调、光影、植物风格保持统一。`;
+                const url = await this.aiImage(prompt, { size: '1024x1024', quality: 'medium' });
+                images.push(url);
+            }
+            if (!this.levelResults['multiview']) this.levelResults['multiview'] = {};
+            this.levelResults['multiview'].multiviewImages = images;
+            this.toast('多视角效果图生成完成！');
+        } catch (e) {
+            // 已在 aiImage 内提示；保留已生成的部分
+        } finally {
+            this.isLoading = false;
+            this.saveState();
+            this.render();
+        }
     },
 
     // 第5关：精确CAD
@@ -4323,18 +4608,21 @@ const gameWorkflow = {
     async generatePrecad() {
         this.isLoading = true;
         this.render();
-        await new Promise(r => setTimeout(r, 2000));
-        const mockImages = [
-            'https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800&q=80',
-            'https://images.unsplash.com/photo-1581094794329-c8112a89af12?w=800&q=80'
-        ];
-        const randomImg = mockImages[Math.floor(Math.random() * mockImages.length)];
-        if (!this.levelResults['precad']) this.levelResults['precad'] = {};
-        this.levelResults['precad'].precadImage = randomImg;
-        this.isLoading = false;
-        this.saveState();
-        this.render();
-        this.toast('CAD施工图纸生成完成！');
+        const type = document.getElementById('pcad-type')?.value || 'full';
+        const typeLabel = { demo: '拆改图，明确标注拆除区域与保留区域', plant: '植物配置图，标注植物种类与种植点位', paving: '铺装详图，标注材质分区与工艺节点', full: '全套施工图，含尺寸标注、材料说明、拆改范围' }[type] || type;
+        const prompt = `景观改造施工CAD图纸，黑白技术制图风格（black and white CAD technical line drawing）。${typeLabel}。精确尺寸标注、图例清晰、专业制图规范。`;
+        try {
+            const url = await this.aiImage(prompt, { size: '1024x1024', quality: 'medium' });
+            if (!this.levelResults['precad']) this.levelResults['precad'] = {};
+            this.levelResults['precad'].precadImage = url;
+            this.toast('CAD施工图纸生成完成！');
+        } catch (e) {
+            // 已在 aiImage 内提示
+        } finally {
+            this.isLoading = false;
+            this.saveState();
+            this.render();
+        }
     },
 
     // ═══════════════════════════════════════════════════════
